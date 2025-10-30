@@ -1,14 +1,8 @@
 const express = require("express");
 const Router = express.Router();
-const productController = require("../controllers/product.controllers");
 const authMiddleware = require("../middlewares/auth.middleware");
 const saleController = require("../controllers/sale.controller");
 
-Router.post(
-  "/addProduct",
-  authMiddleware.authUserMiddleWare,
-  productController.addProduct
-);
 Router.post(
   "/createSale",
   authMiddleware.authUserMiddleWare,

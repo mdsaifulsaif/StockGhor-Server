@@ -1,55 +1,6 @@
 const productModel = require("../models/Product.model");
 
 // Add new product
-
-// const addProduct = async (req, res) => {
-//   try {
-//     const {
-//       name,
-//       brand,
-//       category,
-//       costPrice,
-//       salePrice,
-//       stock,
-//       barcode,
-//       serialNumbers,
-//     } = req.body;
-
-//     if (!name || !costPrice || !salePrice) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "Name, costPrice and salePrice are required",
-//         data: null,
-//       });
-//     }
-
-//     const product = new productModel({
-//       name,
-//       brand,
-//       category,
-//       costPrice,
-//       salePrice,
-//       stock,
-//       barcode,
-//       serialNumbers,
-//     });
-
-//     await product.save();
-
-//     res.status(201).json({
-//       success: true,
-//       message: "Product added successfully",
-//       data: product,
-//     });
-//   } catch (error) {
-//     res.status(500).json({
-//       success: false,
-//       message: error.message,
-//       data: null,
-//     });
-//   }
-// };
-
 const addProduct = async (req, res) => {
   try {
     const {
