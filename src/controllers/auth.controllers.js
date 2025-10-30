@@ -42,8 +42,8 @@ async function registerUser(req, res) {
 
     res.cookie("token", token, {
       httpOnly: true,
-      secure: false, // ❌ HTTPS না, তাই false
-      sameSite: "lax", // ✅ local এর জন্য safe option
+      secure: false, //  HTTPS না, তাই false
+      sameSite: "lax",
     });
 
     return res.status(201).json({
@@ -98,7 +98,14 @@ async function loginUser(req, res) {
   }
 }
 
+function logOutUser(req, res) {
+  res.clearCookie("token");
+  res.status(200).json({
+    message: "User logged out successfully",
+  });
+}
 module.exports = {
   registerUser,
   loginUser,
+  logOutUser,
 };
