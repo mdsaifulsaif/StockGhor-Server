@@ -2,6 +2,7 @@ const express = require("express");
 require("dotenv").config();
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
+const autnRoutes = require("./routes/user.routes");
 
 const app = express();
 
@@ -18,7 +19,7 @@ app.use(express.json());
 app.get("/", (req, res) => {
   res.send("server is running");
 });
-// ✅ Test route for checking API
+//  Test route for checking API
 app.get("/test", (req, res) => {
   res.status(200).json({
     success: true,
@@ -26,5 +27,7 @@ app.get("/test", (req, res) => {
     time: new Date().toLocaleString(),
   });
 });
+
+app.use("/api/auth", autnRoutes);
 
 module.exports = app;
