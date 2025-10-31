@@ -12,15 +12,7 @@ const addSale = async (req, res) => {
       paidAmount,
     } = req.body;
 
-    console.log(
-      customerId,
-      customerName,
-      items,
-      subTotal,
-      discount,
-      grandTotal,
-      paidAmount
-    );
+   
     const dueAmount = grandTotal - paidAmount;
     let paymentStatus = "pending";
 
