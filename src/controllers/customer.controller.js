@@ -6,12 +6,14 @@ const addCustomer = async (req, res) => {
 
     if (!name || !phone || !address) {
       return res.status(400).json({
-        success: false,
         message: "Required fields missing: name, phone, address",
-        data: null,
       });
     }
 
+    const existingCustomer = await customerModel.findOne({ phone });
+    if (existingCustomer) {
+      return res.status(400).json({ message: "Customer alrady exist" });
+    }
     const newCustomer = await customerModel.create({
       name,
       phone,

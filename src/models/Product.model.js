@@ -17,7 +17,7 @@ const ProductSchema = new mongoose.Schema(
     unit: { type: mongoose.Schema.Types.ObjectId, ref: "Unit", required: true },
 
     // Stock management
-    qty: { type: Number, default: 0 }, // Available quantity
+    stock: { type: Number, default: 0 },
     decimal: { type: Number, default: 0 }, // Decimal places allowed
     manageStock: { type: Boolean, default: true }, // Track stock or not
     reorderLevel: { type: Number, default: 0 }, // Minimum stock to reorder

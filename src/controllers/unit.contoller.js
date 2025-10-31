@@ -1,31 +1,32 @@
-const brandModel = require("../models/brand.model");
+const unitModel = require("../models/unit.model");
 
-const addBrand = async (req, res) => {
+const addUnit = async (req, res) => {
   try {
-    const { name, description } = req.body;
+    const { name, description, shortName } = req.body;
 
     if (!name) {
       return res.status(400).json({
-        message: "Required fields missing: name, phone, address",
+        message: "Required fields missing: name",
       });
     }
 
-    const existingBreand = await brandModel.findOne({ name });
+    const existingBreand = await unitModel.findOne({ name });
     if (existingBreand) {
       return res.status(400).json({
-        message: "Brand alrady exist",
+        message: "Unit alrady exist",
       });
     }
 
-    const newBrand = await brandModel.create({
+    const newUnit = await unitModel.create({
       name,
       description,
+      shortName,
     });
 
     res.status(201).json({
       success: true,
-      message: "Brand added successfully",
-      data: newBrand,
+      message: "Unit added successfully",
+      data: newUnit,
     });
   } catch (error) {
     console.error(error);
@@ -38,5 +39,5 @@ const addBrand = async (req, res) => {
 };
 
 module.exports = {
-  addBrand,
+  addUnit,
 };

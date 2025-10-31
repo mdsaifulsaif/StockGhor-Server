@@ -5,6 +5,11 @@ const cookieParser = require("cookie-parser");
 const autnRoutes = require("./routes/user.routes");
 const productRoutes = require("./routes/product.routes");
 const customerRoutes = require("./routes/customer.routes");
+const brandRoutes = require("./routes/brand.routes");
+const categoryRoutes = require("./routes/category.routes");
+const unitRoutes = require("./routes/unite.Routes");
+const supplierRoutes = require("./routes/supplier.routes");
+const purchaseRoutes = require("./routes/purchase.routes");
 
 const app = express();
 
@@ -33,5 +38,10 @@ app.get("/test", (req, res) => {
 app.use("/api/auth", autnRoutes);
 app.use("/api", productRoutes);
 app.use("/api", customerRoutes);
+app.use("/api", brandRoutes);
+app.use("/api", categoryRoutes);
+app.use("/api", unitRoutes);
+app.use("/api", supplierRoutes);
+app.use("/api", purchaseRoutes);
 
 module.exports = app;

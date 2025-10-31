@@ -2,7 +2,14 @@ const mongoose = require("mongoose");
 
 const customerSchema = new mongoose.Schema({
   name: { type: String, required: true },
-  phone: { type: String, required: true },
+  phone: {
+    type: String,
+    required: true,
+    unique: true,
+    minlength: 11,
+    maxlength: 11,
+    match: /^[0-9]{11}$/,
+  },
   email: { type: String },
   address: { type: String, required: true },
   previousDue: { type: Number, default: 0 },
