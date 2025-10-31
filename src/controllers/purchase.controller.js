@@ -1,5 +1,6 @@
 const purchaseModel = require("../models/purchase.model");
 const productModel = require("../models/Product.model");
+const categoryModel = require("../models/category.model");
 
 //  Add New Purchase
 const addPurchase = async (req, res) => {
@@ -52,6 +53,57 @@ const addPurchase = async (req, res) => {
   }
 };
 
+const getPurchasesList = async (req, res) => {
+  try {
+    const page = parseInt(req.params.page) || 1;
+    const perPage = parseInt(req.params.perPage) || 10;
+    const searchKey = req.params.search === "0" ? "" : req.params.search;
+
+    // Build filter
+    let filter = {};
+    if (searchKey && searchKey !== "0") {
+      // এখানে name বা details এর মধ্যে search হবে
+      filter = {
+        $or: [
+          { supplierName: { $regex: searchKey, $options: "i" } },
+          { supplierPhone: { $regex: searchKey, $options: "i" } },
+        ],
+      };
+    }
+
+    const total = await purchaseModel.countDocuments(filter);
+    const purchases = await purchaseModel
+      .find(filter)
+      .skip((page - 1) * perPage)
+      .limit(perPage)
+      .sort({ createdAt: -1 })
+      .populate({
+        path: "products.productID",
+        select: "name unitCost mrp dp categoryID brandID",
+        populate: [
+          { path: "categoryID", select: "name" },
+          { path: "brandID", select: "name" },
+        ],
+      });
+
+    res.json({
+      success: true,
+      message: "Purchase products fetched successfully",
+      data: purchases,
+      pagination: {
+        total,
+        page,
+        perPage,
+        totalPages: Math.ceil(total / perPage),
+      },
+    });
+  } catch (error) {
+    console.error("Get Products Error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 module.exports = {
   addPurchase,
+  getPurchasesList,
 };

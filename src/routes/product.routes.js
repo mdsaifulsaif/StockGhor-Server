@@ -1,18 +1,25 @@
 const express = require("express");
-const Router = express.Router();
+const router = express.Router();
 const productController = require("../controllers/product.controllers");
 const authMiddleware = require("../middlewares/auth.middleware");
 const saleController = require("../controllers/sale.controller");
 
-Router.post(
+router.post(
   "/addProduct",
   authMiddleware.authUserMiddleWare,
   productController.addProduct
 );
-Router.post(
+
+// GET /api/product/productList/:page/:perPage/:search?
+router.get(
+  "/productList/:page/:perPage/:search",
+  authMiddleware.authUserMiddleWare,
+  productController.getProductsList
+);
+router.post(
   "/createSale",
   authMiddleware.authUserMiddleWare,
   saleController.addSale
 );
 
-module.exports = Router;
+module.exports = router;

@@ -1,12 +1,18 @@
 const express = require("express");
-const Router = express.Router();
+const router = express.Router();
 const authMiddleware = require("../middlewares/auth.middleware");
 const purchaseController = require("../controllers/purchase.controller");
 
-Router.post(
+router.post(
   "/createPurchase",
   authMiddleware.authUserMiddleWare,
   purchaseController.addPurchase
 );
+// GET /api/purchasesList/:page/:perPage/:search
+router.get(
+  "/purchasesList/:page/:perPage/:search",
+  authMiddleware.authUserMiddleWare,
+  purchaseController.getPurchasesList
+);
 
-module.exports = Router;
+module.exports = router;
