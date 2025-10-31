@@ -4,7 +4,7 @@ const customersControllers = require("../controllers/customer.controller");
 const authMiddleware = require("../middlewares/auth.middleware");
 
 Router.post(
-  "/creteCustomer",
+  "/createCustomer",
   authMiddleware.authUserMiddleWare,
   customersControllers.addCustomer
 );
