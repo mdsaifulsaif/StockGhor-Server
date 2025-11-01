@@ -9,5 +9,10 @@ Router.post(
   authMiddleware.authUserMiddleWare,
   categoryControllers.addCategory
 );
+Router.get(
+  "/categoryList/:page/:perPage/:search",
+  authMiddleware.authUserMiddleWare,
+  categoryControllers.getCategoryList
+);
 
 module.exports = Router;

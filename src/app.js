@@ -10,6 +10,7 @@ const categoryRoutes = require("./routes/category.routes");
 const unitRoutes = require("./routes/unite.Routes");
 const supplierRoutes = require("./routes/supplier.routes");
 const purchaseRoutes = require("./routes/purchase.routes");
+const saleRoutes = require("./routes/sale.route");
 
 const app = express();
 
@@ -43,5 +44,6 @@ app.use("/api", categoryRoutes);
 app.use("/api", unitRoutes);
 app.use("/api", supplierRoutes);
 app.use("/api", purchaseRoutes);
+app.use("/api", saleRoutes);
 
 module.exports = app;

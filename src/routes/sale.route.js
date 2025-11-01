@@ -8,5 +8,10 @@ Router.post(
   authMiddleware.authUserMiddleWare,
   saleController.addSale
 );
+Router.get(
+  "/saleList/:page/:perPage/:search",
+  authMiddleware.authUserMiddleWare,
+  saleController.getSalesList
+);
 
 module.exports = Router;

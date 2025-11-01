@@ -8,5 +8,10 @@ Router.post(
   authMiddleware.authUserMiddleWare,
   supplierController.addSupplier
 );
+Router.get(
+  "/suppliertList/:page/:perPage/:search",
+  authMiddleware.authUserMiddleWare,
+  supplierController.getSupplierList
+);
 
 module.exports = Router;

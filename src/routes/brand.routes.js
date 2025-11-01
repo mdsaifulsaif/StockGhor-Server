@@ -9,5 +9,10 @@ Router.post(
   authMiddleware.authUserMiddleWare,
   brandControllers.addBrand
 );
+Router.get(
+  "/brandList/:page/:perPage/:search",
+  authMiddleware.authUserMiddleWare,
+  brandControllers.getBrandList
+);
 
 module.exports = Router;

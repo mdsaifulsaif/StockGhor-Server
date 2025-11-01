@@ -16,22 +16,35 @@ const addPurchase = async (req, res) => {
       });
     }
 
-    //  Calculate and update stock automatically
+    // Loop through products and update product batches
     for (const item of products) {
-      console.log(item);
-      const product = await productModel.findById(item.productID);
+      const { productID, qty, unitCost } = item;
+
+      const product = await productModel.findById(productID);
       if (!product) {
         return res.status(404).json({
           success: false,
-          message: `Product not found: ${item.productID}`,
+          message: `Product not found: ${productID}`,
         });
       }
 
-      // Update stock
-      product.stock = (product.stock || 0) + item.qty;
+      // ✅ Push new batch (FIFO logic)
+      product.batches.push({
+        qty: qty,
+        unitCost: unitCost,
+        purchaseDate: new Date(),
+      });
+
+      // ✅ Update total stock
+      product.stock = (product.stock || 0) + qty;
+
+      // ✅ Update latest cost for display/reference
+      product.unitCost = unitCost;
+
       await product.save();
     }
 
+    // ✅ Save purchase record
     const newPurchase = new purchaseModel({
       products,
       supplierName,
@@ -44,7 +57,7 @@ const addPurchase = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: "Purchase added successfully.",
+      message: "Purchase added successfully with FIFO batches.",
       data: newPurchase,
     });
   } catch (error) {

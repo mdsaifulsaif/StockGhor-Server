@@ -1,7 +1,6 @@
 const mongoose = require("mongoose");
 const productModel = require("../models/Product.model");
 
-// Add new product
 const addProduct = async (req, res) => {
   try {
     const {
@@ -24,39 +23,35 @@ const addProduct = async (req, res) => {
       status,
     } = req.body;
 
-    console.log(req.body);
     // Required fields check
     if (!name || !categoryID || !brandID || !unit || !unitCost || !mrp || !dp) {
       return res.status(400).json({
         success: false,
         message:
           "Required fields missing: name, categoryID, brandID, unit, unitCost, mrp, dp",
-        data: null,
       });
     }
 
-    // Stock validation
     if (qty < 0) {
       return res.status(400).json({
         success: false,
         message: "Quantity cannot be negative",
-        data: null,
       });
     }
 
-    //  Convert to ObjectId (important for populate)
+    // Convert to ObjectId
     const categoryObjectId = new mongoose.Types.ObjectId(categoryID);
     const brandObjectId = new mongoose.Types.ObjectId(brandID);
     const unitObjectId = new mongoose.Types.ObjectId(unit);
 
-    // Create new product
+    // ✅ Create new product with first FIFO batch if qty > 0
     const product = new productModel({
       name,
       details,
       categoryID: categoryObjectId,
       brandID: brandObjectId,
       unit: unitObjectId,
-      qty: qty || 0,
+      stock: qty || 0, // total available stock
       decimal: decimal || 0,
       manageStock: manageStock !== undefined ? manageStock : true,
       reorderLevel: reorderLevel || 0,
@@ -68,13 +63,23 @@ const addProduct = async (req, res) => {
       barcode: barcode || "",
       serialNumbers: serialNumbers || [],
       status: status !== undefined ? status : true,
+      batches:
+        qty && qty > 0
+          ? [
+              {
+                qty: qty,
+                unitCost: unitCost,
+                purchaseDate: new Date(),
+              },
+            ]
+          : [],
     });
 
     await product.save();
 
     res.status(201).json({
       success: true,
-      message: "Product added successfully",
+      message: "Product added successfully (FIFO ready)",
       data: product,
     });
   } catch (error) {
@@ -82,7 +87,6 @@ const addProduct = async (req, res) => {
     res.status(500).json({
       success: false,
       message: error.message,
-      data: null,
     });
   }
 };

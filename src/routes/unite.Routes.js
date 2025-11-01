@@ -9,5 +9,10 @@ Router.post(
   authMiddleware.authUserMiddleWare,
   UnitControllers.addUnit
 );
+Router.get(
+  "/unitList/:page/:perPage/:search",
+  authMiddleware.authUserMiddleWare,
+  UnitControllers.getUnitList
+);
 
 module.exports = Router;

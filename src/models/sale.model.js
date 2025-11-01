@@ -1,37 +1,49 @@
 const mongoose = require("mongoose");
 
-const saleSchema = new mongoose.Schema({
-  customerId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Customer",
-    default: null,
-  },
-  customerName: { type: String, default: "Walk-in Customer" },
-
-  items: [
-    {
-      productId: { type: mongoose.Schema.Types.ObjectId, ref: "Product" },
-      name: String,
-      qty: Number,
-      price: Number,
-      total: Number,
+const saleSchema = new mongoose.Schema(
+  {
+    // 🔹 Customer info
+    customerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Customer",
+      default: null,
     },
-  ],
+    customerName: { type: String, default: "Walk-in Customer" },
 
-  subTotal: Number,
-  discount: { type: Number, default: 0 },
-  grandTotal: Number,
+    // 🔹 Sold products
+    items: [
+      {
+        productId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Product",
+          required: true,
+        },
+        name: { type: String, required: true },
+        qty: { type: Number, required: true },
+        price: { type: Number, required: true }, // Selling price per item
+        total: { type: Number, required: true }, // qty * price
+        batchRef: { type: mongoose.Schema.Types.ObjectId, ref: "Batch" }, // FIFO batch track করার জন্য future use
+      },
+    ],
 
-  paidAmount: { type: Number, default: 0 },
-  dueAmount: { type: Number, default: 0 },
-  paymentStatus: {
-    type: String,
-    enum: ["pending", "partial", "paid"],
-    default: "pending",
+    // 🔹 Totals
+    subTotal: { type: Number, required: true },
+    discount: { type: Number, default: 0 },
+    grandTotal: { type: Number, required: true },
+
+    // 🔹 Payment
+    paidAmount: { type: Number, default: 0 },
+    dueAmount: { type: Number, default: 0 },
+    paymentStatus: {
+      type: String,
+      enum: ["pending", "partial", "paid"],
+      default: "pending",
+    },
+
+    // 🔹 Timestamps
+    createdAt: { type: Date, default: Date.now },
   },
-
-  createdAt: { type: Date, default: Date.now },
-});
-
+  { timestamps: true }
+);
 const saleModel = mongoose.model("Sale", saleSchema);
 module.exports = saleModel;

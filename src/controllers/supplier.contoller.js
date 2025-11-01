@@ -39,6 +39,49 @@ const addSupplier = async (req, res) => {
   }
 };
 
+const getSupplierList = async (req, res) => {
+  try {
+    const page = parseInt(req.params.page) || 1;
+    const perPage = parseInt(req.params.perPage) || 10;
+    const searchKey = req.params.search === "0" ? "" : req.params.search;
+
+    // Build filter
+    let filter = {};
+    if (searchKey && searchKey !== "0") {
+      // এখানে name বা details এর মধ্যে search হবে
+      filter = {
+        $or: [
+          { name: { $regex: searchKey, $options: "i" } },
+          { details: { $regex: searchKey, $options: "i" } },
+        ],
+      };
+    }
+
+    const total = await supplierModel.countDocuments(filter);
+    const supplier = await supplierModel
+      .find(filter)
+      .skip((page - 1) * perPage)
+      .limit(perPage)
+      .sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      message: "Supplier List fetched successfully",
+      data: supplier,
+      pagination: {
+        total,
+        page,
+        perPage,
+        totalPages: Math.ceil(total / perPage),
+      },
+    });
+  } catch (error) {
+    console.error("Get Supplier Error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 module.exports = {
   addSupplier,
+  getSupplierList,
 };
