@@ -2,7 +2,6 @@ const express = require("express");
 const router = express.Router();
 const productController = require("../controllers/product.controllers");
 const authMiddleware = require("../middlewares/auth.middleware");
-// const saleController = require("../controllers/sale.controller");
 
 router.post(
   "/addProduct",
@@ -15,6 +14,11 @@ router.get(
   "/productList/:page/:perPage/:search",
   authMiddleware.authUserMiddleWare,
   productController.getProductsList
+);
+router.get(
+  "/allProducts",
+  authMiddleware.authUserMiddleWare,
+  productController.getAllProducts
 );
 
 module.exports = router;

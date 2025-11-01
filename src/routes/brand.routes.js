@@ -1,18 +1,23 @@
 const express = require("express");
-const Router = express.Router();
+const router = express.Router();
 
 const brandControllers = require("../controllers/brand.controller");
 const authMiddleware = require("../middlewares/auth.middleware");
 
-Router.post(
+router.post(
   "/createBrand",
   authMiddleware.authUserMiddleWare,
   brandControllers.addBrand
 );
-Router.get(
+router.get(
   "/brandList/:page/:perPage/:search",
   authMiddleware.authUserMiddleWare,
   brandControllers.getBrandList
 );
+router.get(
+  "/allBrands",
+  authMiddleware.authUserMiddleWare,
+  brandControllers.getAllBrands
+);
 
-module.exports = Router;
+module.exports = router;

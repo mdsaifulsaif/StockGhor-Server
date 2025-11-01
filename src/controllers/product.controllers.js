@@ -138,7 +138,27 @@ const getProductsList = async (req, res) => {
   }
 };
 
+const getAllProducts = async (req, res) => {
+  try {
+    const products = await productModel.find({}).select("-batches");
+
+    res.status(200).json({
+      success: true,
+      message: "All product fetched successfully",
+      // data: products.map((c) => ({
+      //   _id: c._id,
+      //   name: c.name,
+      // })),
+      data: products,
+    });
+  } catch (error) {
+    console.error("All product Error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 module.exports = {
   addProduct,
   getProductsList,
+  getAllProducts,
 };

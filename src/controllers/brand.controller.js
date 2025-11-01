@@ -79,7 +79,26 @@ const getBrandList = async (req, res) => {
   }
 };
 
+const getAllBrands = async (req, res) => {
+  try {
+    const brands = await brandModel.find({});
+
+    res.status(200).json({
+      success: true,
+      message: "All Brand fetched successfully",
+      data: brands.map((c) => ({
+        _id: c._id,
+        name: c.name,
+      })),
+    });
+  } catch (error) {
+    console.error("All Brand Error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 module.exports = {
   addBrand,
   getBrandList,
+  getAllBrands,
 };

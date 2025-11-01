@@ -1,18 +1,23 @@
 const express = require("express");
-const Router = express.Router();
+const router = express.Router();
 
 const UnitControllers = require("../controllers/unit.contoller");
 const authMiddleware = require("../middlewares/auth.middleware");
 
-Router.post(
+router.post(
   "/createUnit",
   authMiddleware.authUserMiddleWare,
   UnitControllers.addUnit
 );
-Router.get(
+router.get(
   "/unitList/:page/:perPage/:search",
   authMiddleware.authUserMiddleWare,
   UnitControllers.getUnitList
 );
+router.get(
+  "/allUnits",
+  authMiddleware.authUserMiddleWare,
+  UnitControllers.getAllUnits
+);
 
-module.exports = Router;
+module.exports = router;

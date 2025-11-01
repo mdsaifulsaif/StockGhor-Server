@@ -77,7 +77,25 @@ const getCategoryList = async (req, res) => {
   }
 };
 
+const getAllCategory = async (req, res) => {
+  try {
+    const category = await categoryModel.find({});
+
+    res.status(200).json({
+      success: true,
+      message: "All Brand fetched successfully",
+      data: category.map((c) => ({
+        _id: c._id,
+        name: c.name,
+      })),
+    });
+  } catch (error) {
+    console.error("All Brand Error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
 module.exports = {
   addCategory,
   getCategoryList,
+  getAllCategory,
 };

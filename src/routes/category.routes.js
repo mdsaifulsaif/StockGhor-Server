@@ -1,18 +1,23 @@
 const express = require("express");
-const Router = express.Router();
+const router = express.Router();
 
 const authMiddleware = require("../middlewares/auth.middleware");
 const categoryControllers = require("../controllers/category.controller");
 
-Router.post(
+router.post(
   "/createCategory",
   authMiddleware.authUserMiddleWare,
   categoryControllers.addCategory
 );
-Router.get(
+router.get(
   "/categoryList/:page/:perPage/:search",
   authMiddleware.authUserMiddleWare,
   categoryControllers.getCategoryList
 );
+router.get(
+  "/allCategoris",
+  authMiddleware.authUserMiddleWare,
+  categoryControllers.getAllCategory
+);
 
-module.exports = Router;
+module.exports = router;

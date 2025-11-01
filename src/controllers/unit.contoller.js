@@ -80,7 +80,26 @@ const getUnitList = async (req, res) => {
   }
 };
 
+const getAllUnits = async (req, res) => {
+  try {
+    const units = await unitModel.find({});
+
+    res.status(200).json({
+      success: true,
+      message: "All unit fetched successfully",
+      data: units.map((c) => ({
+        _id: c._id,
+        name: c.name,
+      })),
+    });
+  } catch (error) {
+    console.error("All Unit Error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 module.exports = {
   addUnit,
   getUnitList,
+  getAllUnits,
 };

@@ -1,17 +1,22 @@
 const express = require("express");
-const Router = express.Router();
+const router = express.Router();
 const authMiddleware = require("../middlewares/auth.middleware");
 const supplierController = require("../controllers/supplier.contoller");
 
-Router.post(
+router.post(
   "/createSupplier",
   authMiddleware.authUserMiddleWare,
   supplierController.addSupplier
 );
-Router.get(
+router.get(
   "/suppliertList/:page/:perPage/:search",
   authMiddleware.authUserMiddleWare,
   supplierController.getSupplierList
 );
+router.get(
+  "/allSuppliers",
+  authMiddleware.authUserMiddleWare,
+  supplierController.getAllSuppliers
+);
 
-module.exports = Router;
+module.exports = router;
