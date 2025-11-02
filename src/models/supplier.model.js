@@ -13,6 +13,7 @@ const supplierSchema = new mongoose.Schema({
     match: /^(?:\+8801|01)[3-9]\d{8}$/,
   },
   email: { type: String, default: "" },
+  status: { type: Boolean, default: true },
   address: { type: String, required: true },
   previousDue: { type: Number, default: 0 },
   createdAt: { type: Date, default: Date.now },

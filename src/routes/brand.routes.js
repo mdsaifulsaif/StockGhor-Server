@@ -19,5 +19,10 @@ router.get(
   authMiddleware.authUserMiddleWare,
   brandControllers.getAllBrands
 );
+router.get(
+  "/deleteBrands/:id",
+  authMiddleware.authUserMiddleWare,
+  brandControllers.deleteBrand
+);
 
 module.exports = router;

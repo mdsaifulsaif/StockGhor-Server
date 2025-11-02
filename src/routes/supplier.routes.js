@@ -18,5 +18,10 @@ router.get(
   authMiddleware.authUserMiddleWare,
   supplierController.getAllSuppliers
 );
+router.get(
+  "/deleteSupplier/:id",
+  authMiddleware.authUserMiddleWare,
+  supplierController.softDeleteSupplier
+);
 
 module.exports = router;

@@ -116,7 +116,61 @@ const getPurchasesList = async (req, res) => {
   }
 };
 
+const deletePurchase = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const purchase = await purchaseModel.findById(id);
+    if (!purchase) {
+      return res.status(404).json({
+        success: false,
+        message: "Purchase not found",
+      });
+    }
+
+    // ✅ 1. Loop through all purchased items
+    for (const item of purchase.products) {
+      const product = await productModel.findById(item.productID);
+      if (product) {
+        // ✅ 2. FIFO batches থেকেও qty remove করতে হবে
+        let qtyToRemove = item.qty;
+
+        for (let batch of product.batches) {
+          if (qtyToRemove <= 0) break;
+
+          const removeQty = Math.min(batch.qty, qtyToRemove);
+          batch.qty -= removeQty;
+          qtyToRemove -= removeQty;
+        }
+
+        // ✅ 3. Empty batch remove করো
+        product.batches = product.batches.filter((b) => b.qty > 0);
+
+        // ✅ 4. Total stock কমাও
+        product.stock = Math.max((product.stock || 0) - item.qty, 0);
+
+        await product.save();
+      }
+    }
+
+    // ✅ 5. Purchase delete করো
+    await purchaseModel.findByIdAndDelete(id);
+
+    res.status(200).json({
+      success: true,
+      message: "Purchase deleted successfully & stock updated.",
+    });
+  } catch (error) {
+    console.error("Delete Purchase Error:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
 module.exports = {
   addPurchase,
   getPurchasesList,
+  deletePurchase,
 };

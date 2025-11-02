@@ -14,5 +14,10 @@ router.get(
   authMiddleware.authUserMiddleWare,
   purchaseController.getPurchasesList
 );
+router.delete(
+  "/deletePurchase/:id",
+  authMiddleware.authUserMiddleWare,
+  purchaseController.deletePurchase
+);
 
 module.exports = router;

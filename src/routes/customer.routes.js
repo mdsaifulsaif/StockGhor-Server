@@ -18,5 +18,10 @@ router.get(
   authMiddleware.authUserMiddleWare,
   customersControllers.getAllCustomers
 );
+router.get(
+  "/deleteCustomer/:id",
+  authMiddleware.authUserMiddleWare,
+  customersControllers.softDeleteCustomer
+);
 
 module.exports = router;

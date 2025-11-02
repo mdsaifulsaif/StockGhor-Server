@@ -98,15 +98,14 @@ const getProductsList = async (req, res) => {
     const searchKey = req.params.search === "0" ? "" : req.params.search;
 
     // Build filter
-    let filter = {};
+    let filter = { status: true };
     if (searchKey && searchKey !== "0") {
       // এখানে name বা details এর মধ্যে search হবে
-      filter = {
-        $or: [
-          { name: { $regex: searchKey, $options: "i" } },
-          { details: { $regex: searchKey, $options: "i" } },
-        ],
-      };
+
+      filter.$or = [
+        { name: { $regex: searchKey, $options: "i" } },
+        { details: { $regex: searchKey, $options: "i" } },
+      ];
     }
 
     const total = await productModel.countDocuments(filter);
@@ -114,6 +113,7 @@ const getProductsList = async (req, res) => {
       .find(filter)
       .skip((page - 1) * perPage)
       .limit(perPage)
+      // .select("-batches")
       .sort({ createdAt: -1 })
       .populate([
         { path: "categoryID", select: "name" }, // category name
@@ -157,8 +157,39 @@ const getAllProducts = async (req, res) => {
   }
 };
 
+const deleteProduct = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // প্রোডাক্ট খুঁজে বের করো
+    const product = await productModel.findById(id);
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found",
+      });
+    }
+
+    // সরাসরি delete না করে status false করে দাও
+    product.status = false;
+    await product.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Product deactivated successfully",
+    });
+  } catch (error) {
+    console.error("Delete Product Error:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
 module.exports = {
   addProduct,
   getProductsList,
   getAllProducts,
+  deleteProduct,
 };

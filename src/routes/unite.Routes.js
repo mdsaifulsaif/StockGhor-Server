@@ -19,5 +19,10 @@ router.get(
   authMiddleware.authUserMiddleWare,
   UnitControllers.getAllUnits
 );
+router.get(
+  "/deleteUnit/:id",
+  authMiddleware.authUserMiddleWare,
+  UnitControllers.deleteUnit
+);
 
 module.exports = router;

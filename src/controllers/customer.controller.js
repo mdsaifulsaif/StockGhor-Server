@@ -43,29 +43,30 @@ const getCustomerList = async (req, res) => {
     const perPage = parseInt(req.params.perPage) || 10;
     const searchKey = req.params.search === "0" ? "" : req.params.search;
 
-    // Build filter
-    let filter = {};
+    //  Base filter: শুধু active customer নেবে
+    let filter = { status: true };
+
+    //  যদি search key থাকে, তাহলে নাম বা ফোনে খুঁজবে
     if (searchKey && searchKey !== "0") {
-      // এখানে name বা details এর মধ্যে search হবে
-      filter = {
-        $or: [
-          { name: { $regex: searchKey, $options: "i" } },
-          { details: { $regex: searchKey, $options: "i" } },
-        ],
-      };
+      filter.$or = [
+        { name: { $regex: searchKey, $options: "i" } },
+        { phone: { $regex: searchKey, $options: "i" } },
+        { email: { $regex: searchKey, $options: "i" } },
+      ];
     }
 
+    //  Pagination + sorting
     const total = await customerModel.countDocuments(filter);
-    const customer = await customerModel
+    const customers = await customerModel
       .find(filter)
       .skip((page - 1) * perPage)
       .limit(perPage)
       .sort({ createdAt: -1 });
 
-    res.json({
+    res.status(200).json({
       success: true,
-      message: "Customer List fetched successfully",
-      data: customer,
+      message: "Customer list fetched successfully",
+      data: customers,
       pagination: {
         total,
         page,
@@ -75,7 +76,10 @@ const getCustomerList = async (req, res) => {
     });
   } catch (error) {
     console.error("Get Customer Error:", error);
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };
 
@@ -96,8 +100,32 @@ const getAllCustomers = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+const softDeleteCustomer = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const customer = await customerModel.findById(id);
+    if (!customer) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Customer not found" });
+    }
+
+    customer.status = false; // Soft delete
+    await customer.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Customer deactivated successfully",
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 module.exports = {
   addCustomer,
   getCustomerList,
   getAllCustomers,
+  softDeleteCustomer,
 };

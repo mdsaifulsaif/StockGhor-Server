@@ -19,5 +19,10 @@ router.get(
   authMiddleware.authUserMiddleWare,
   categoryControllers.getAllCategory
 );
+router.get(
+  "/deleteCategoy/:id",
+  authMiddleware.authUserMiddleWare,
+  categoryControllers.deleteCategory
+);
 
 module.exports = router;

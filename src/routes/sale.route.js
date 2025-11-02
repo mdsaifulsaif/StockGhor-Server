@@ -13,5 +13,15 @@ Router.get(
   authMiddleware.authUserMiddleWare,
   saleController.getSalesList
 );
+Router.get(
+  "/deleteSale/:id",
+  authMiddleware.authUserMiddleWare,
+  saleController.deleteSale
+);
+Router.post(
+  "/returnSale",
+  authMiddleware.authUserMiddleWare,
+  saleController.addSaleReturn
+);
 
 module.exports = Router;

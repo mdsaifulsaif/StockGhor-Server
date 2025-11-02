@@ -21,4 +21,10 @@ router.get(
   productController.getAllProducts
 );
 
+router.get(
+  "/deleteProduct/:id",
+  authMiddleware.authUserMiddleWare,
+  productController.deleteProduct
+);
+
 module.exports = router;

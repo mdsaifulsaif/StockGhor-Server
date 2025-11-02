@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 const saleModel = require("../models/sale.model");
 const productModel = require("../models/Product.model");
+const saleReturnModel = require("../models/saleReturn.model");
 const customerModel = require("../models/customer.model");
 
 // const addSale = async (req, res) => {
@@ -226,7 +227,123 @@ const getSalesList = async (req, res) => {
   }
 };
 
+const deleteSale = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const sale = await saleModel.findById(id);
+    if (!sale) {
+      return res.status(404).json({
+        success: false,
+        message: "Sale not found",
+      });
+    }
+
+    // প্রতিটি sale item এর জন্য stock restore করো
+    for (const item of sale.items) {
+      const product = await productModel.findById(item.productId);
+      if (!product) continue;
+
+      // FIFO অনুযায়ী: সর্বশেষ batch (যেটা বিক্রিতে কমেছে) তাতে আবার qty যোগ করো
+      // যেহেতু আমরা sale এর সময় oldest batch থেকে qty কমাই,
+      // delete করলে quantity ফিরিয়ে দিতে হবে newest batch-এ বা নতুন batch তৈরি করে।
+      const restoreQty = item.qty;
+
+      // যদি ব্যাচ থাকে, তাহলে শেষ batch-এ যোগ করো
+      if (product.batches && product.batches.length > 0) {
+        product.batches[product.batches.length - 1].qty += restoreQty;
+      } else {
+        // না থাকলে নতুন batch তৈরি করো
+        product.batches.push({
+          qty: restoreQty,
+          unitCost: product.unitCost,
+          purchaseDate: new Date(),
+        });
+      }
+
+      // stock restore করো
+      product.stock = (product.stock || 0) + restoreQty;
+      await product.save();
+    }
+
+    // Sale delete করো
+    await saleModel.findByIdAndDelete(id);
+
+    res.status(200).json({
+      success: true,
+      message: "Sale deleted successfully and stock restored.",
+    });
+  } catch (error) {
+    console.error("Delete Sale Error:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+const addSaleReturn = async (req, res) => {
+  try {
+    const { saleId, items, totalReturnAmount } = req.body;
+
+    if (!saleId || !items || items.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Sale ID and items are required.",
+      });
+    }
+
+    // Sale খুঁজে বের করো
+    const sale = await saleModel.findById(saleId);
+    if (!sale) {
+      return res.status(404).json({
+        success: false,
+        message: "Sale not found.",
+      });
+    }
+
+    // প্রতিটি product এর stock restore করো
+    for (const item of items) {
+      const product = await productModel.findById(item.productId);
+      if (!product) continue;
+
+      // FIFO অনুযায়ী নতুন batch যোগ করা সবচেয়ে সহজ ও clean
+      product.batches.push({
+        qty: item.qty,
+        unitCost: product.unitCost,
+        purchaseDate: new Date(),
+      });
+
+      // total stock restore
+      product.stock = (product.stock || 0) + item.qty;
+      await product.save();
+    }
+
+    // Return entry সংরক্ষণ করো
+    const saleReturn = await saleReturnModel.create({
+      saleId,
+      customerId: sale.customerId,
+      items,
+      totalReturnAmount,
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Sale return processed successfully",
+      data: saleReturn,
+    });
+  } catch (error) {
+    console.error("Sale Return Error:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
 module.exports = {
   addSale,
   getSalesList,
+  deleteSale,
+  addSaleReturn,
 };

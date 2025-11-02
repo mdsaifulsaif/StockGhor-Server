@@ -45,15 +45,14 @@ const getUnitList = async (req, res) => {
     const searchKey = req.params.search === "0" ? "" : req.params.search;
 
     // Build filter
-    let filter = {};
+    let filter = { status: true };
     if (searchKey && searchKey !== "0") {
       // এখানে name বা details এর মধ্যে search হবে
-      filter = {
-        $or: [
-          { name: { $regex: searchKey, $options: "i" } },
-          { details: { $regex: searchKey, $options: "i" } },
-        ],
-      };
+
+      filter.$or = [
+        { name: { $regex: searchKey, $options: "i" } },
+        { details: { $regex: searchKey, $options: "i" } },
+      ];
     }
 
     const total = await unitModel.countDocuments(filter);
@@ -98,8 +97,39 @@ const getAllUnits = async (req, res) => {
   }
 };
 
+const deleteUnit = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // প্রথমে ব্র্যান্ডটা খুঁজে বের করো
+    const unit = await unitModel.findById(id);
+    if (!unit) {
+      return res.status(404).json({
+        success: false,
+        message: "Unit not found",
+      });
+    }
+
+    // সরাসরি delete না করে status false করে দাও
+    unit.status = false;
+    await unit.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Unit deactivated successfully",
+    });
+  } catch (error) {
+    console.error("Unit Delete Error:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
 module.exports = {
   addUnit,
   getUnitList,
   getAllUnits,
+  deleteUnit,
 };

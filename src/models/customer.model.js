@@ -12,6 +12,7 @@ const customerSchema = new mongoose.Schema({
   },
   email: { type: String },
   address: { type: String, required: true },
+  status: { type: Boolean, default: true },
   previousDue: { type: Number, default: 0 },
   createdAt: { type: Date, default: Date.now },
 });

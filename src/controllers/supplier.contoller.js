@@ -45,16 +45,16 @@ const getSupplierList = async (req, res) => {
     const perPage = parseInt(req.params.perPage) || 10;
     const searchKey = req.params.search === "0" ? "" : req.params.search;
 
-    // Build filter
-    let filter = {};
+    //  Base filter: শুধু active customer নেবে
+    let filter = { status: true };
+
+    //  যদি search key থাকে, তাহলে নাম বা ফোনে খুঁজবে
     if (searchKey && searchKey !== "0") {
-      // এখানে name বা details এর মধ্যে search হবে
-      filter = {
-        $or: [
-          { name: { $regex: searchKey, $options: "i" } },
-          { details: { $regex: searchKey, $options: "i" } },
-        ],
-      };
+      filter.$or = [
+        { name: { $regex: searchKey, $options: "i" } },
+        { phone: { $regex: searchKey, $options: "i" } },
+        { email: { $regex: searchKey, $options: "i" } },
+      ];
     }
 
     const total = await supplierModel.countDocuments(filter);
@@ -99,8 +99,31 @@ const getAllSuppliers = async (req, res) => {
   }
 };
 
+const softDeleteSupplier = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const supplier = await supplierModel.findById(id);
+    if (!supplier) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Supplier not found" });
+    }
+
+    supplier.status = false;
+    await supplier.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Supplier deactivated successfully",
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 module.exports = {
   addSupplier,
   getSupplierList,
   getAllSuppliers,
+  softDeleteSupplier,
 };
