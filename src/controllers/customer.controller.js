@@ -101,6 +101,43 @@ const getAllCustomers = async (req, res) => {
   }
 };
 
+const updateCustomer = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, phone, email, address } = req.body;
+
+    // Build update object dynamically
+    const updateData = {
+      ...(name && { name }),
+      ...(phone && { phone }),
+      ...(email && { email }),
+      ...(address && { address }),
+    };
+
+    const updatedCustomer = await customerModel.findByIdAndUpdate(
+      id,
+      updateData,
+      { new: true } // Return the updated document
+    );
+
+    if (!updatedCustomer) {
+      return res.status(404).json({
+        success: false,
+        message: "Customer not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Customer updated successfully",
+      data: updatedCustomer,
+    });
+  } catch (error) {
+    console.error("Update Customer Error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 const softDeleteCustomer = async (req, res) => {
   try {
     const { id } = req.params;
@@ -128,4 +165,5 @@ module.exports = {
   getCustomerList,
   getAllCustomers,
   softDeleteCustomer,
+  updateCustomer,
 };

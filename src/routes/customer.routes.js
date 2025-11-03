@@ -18,6 +18,11 @@ router.get(
   authMiddleware.authUserMiddleWare,
   customersControllers.getAllCustomers
 );
+router.put(
+  "/editCustomer/:id",
+  authMiddleware.authUserMiddleWare,
+  customersControllers.updateCustomer
+);
 router.get(
   "/deleteCustomer/:id",
   authMiddleware.authUserMiddleWare,

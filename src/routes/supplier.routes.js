@@ -18,6 +18,11 @@ router.get(
   authMiddleware.authUserMiddleWare,
   supplierController.getAllSuppliers
 );
+router.put(
+  "/editSupplier/:id",
+  authMiddleware.authUserMiddleWare,
+  supplierController.updateSupplier
+);
 router.get(
   "/deleteSupplier/:id",
   authMiddleware.authUserMiddleWare,

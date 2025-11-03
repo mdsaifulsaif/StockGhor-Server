@@ -18,6 +18,11 @@ Router.get(
   authMiddleware.authUserMiddleWare,
   saleController.deleteSale
 );
+Router.put(
+  "/editSale/:id",
+  authMiddleware.authUserMiddleWare,
+  saleController.editSale
+);
 Router.post(
   "/returnSale",
   authMiddleware.authUserMiddleWare,

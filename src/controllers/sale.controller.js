@@ -227,6 +227,106 @@ const getSalesList = async (req, res) => {
   }
 };
 
+const editSale = async (req, res) => {
+  try {
+    const { id } = req.params; // saleId
+    const {
+      customerId,
+      customerName,
+      items,
+      subTotal,
+      discount,
+      grandTotal,
+      paidAmount,
+    } = req.body;
+
+    if (!items || items.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Sale must include at least one product.",
+      });
+    }
+
+    const sale = await saleModel.findById(id);
+    if (!sale) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Sale not found" });
+    }
+
+    // Step 1: Rollback previous sale stock (increase stock back)
+    for (const item of sale.items) {
+      const product = await productModel.findById(item.productId);
+      if (product) {
+        product.stock = (product.stock || 0) + item.qty;
+        if (product.batches && product.batches.length > 0) {
+          product.batches.unshift({
+            qty: item.qty,
+            unitCost: item.price,
+            purchaseDate: new Date(),
+          });
+        }
+        await product.save();
+      }
+    }
+
+    // Step 2: Apply new sale stock deduction
+    for (const item of items) {
+      const product = await productModel.findById(item.productId);
+      if (!product) {
+        return res.status(404).json({
+          success: false,
+          message: `Product not found: ${item.productId}`,
+        });
+      }
+
+      let qtyToSell = item.qty;
+      if (product.batches && product.batches.length > 0) {
+        for (let batch of product.batches) {
+          if (qtyToSell <= 0) break;
+          if (batch.qty === 0) continue;
+
+          const deductQty = Math.min(batch.qty, qtyToSell);
+          batch.qty -= deductQty;
+          qtyToSell -= deductQty;
+        }
+        product.batches = product.batches.filter((b) => b.qty > 0);
+      }
+
+      product.stock = Math.max((product.stock || 0) - item.qty, 0);
+      await product.save();
+    }
+
+    // Step 3: Update sale document
+    const dueAmount = grandTotal - paidAmount;
+    let paymentStatus = "pending";
+    if (paidAmount === 0) paymentStatus = "pending";
+    else if (paidAmount < grandTotal) paymentStatus = "partial";
+    else paymentStatus = "paid";
+
+    sale.customerId = customerId || null;
+    sale.customerName = customerName || "Walk-in Customer";
+    sale.items = items;
+    sale.subTotal = subTotal;
+    sale.discount = discount;
+    sale.grandTotal = grandTotal;
+    sale.paidAmount = paidAmount;
+    sale.dueAmount = dueAmount;
+    sale.paymentStatus = paymentStatus;
+
+    await sale.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Sale updated successfully",
+      data: sale,
+    });
+  } catch (error) {
+    console.error("Edit Sale Error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 const deleteSale = async (req, res) => {
   try {
     const { id } = req.params;
@@ -346,4 +446,5 @@ module.exports = {
   getSalesList,
   deleteSale,
   addSaleReturn,
+  editSale,
 };

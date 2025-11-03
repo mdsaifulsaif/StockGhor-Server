@@ -97,6 +97,38 @@ const getAllUnits = async (req, res) => {
   }
 };
 
+const updateUnit = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, details } = req.body;
+
+    const updateData = {};
+
+    if (name) updateData.name = name;
+    if (details) updateData.details = details;
+
+    const updated = await unitModel.findByIdAndUpdate(id, updateData, {
+      new: true,
+    });
+
+    if (!updated) {
+      return res.status(404).json({
+        success: false,
+        message: "Unit not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Unit updated successfully",
+      data: updated,
+    });
+  } catch (error) {
+    console.error("Update Unit Error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 const deleteUnit = async (req, res) => {
   try {
     const { id } = req.params;
@@ -132,4 +164,5 @@ module.exports = {
   getUnitList,
   getAllUnits,
   deleteUnit,
+  updateUnit,
 };

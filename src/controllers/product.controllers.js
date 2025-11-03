@@ -157,6 +157,192 @@ const getAllProducts = async (req, res) => {
   }
 };
 
+const getProductDetails = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // 🔹 Validate MongoDB ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid product ID format.",
+      });
+    }
+
+    // 🔹 Find Product and Populate Relations
+    const product = await productModel
+      .findById(id)
+      .populate("categoryID", "name")
+      .populate("brandID", "name")
+      .populate("unit", "name");
+
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found.",
+      });
+    }
+
+    // 🔹 Success response
+    res.status(200).json({
+      success: true,
+      message: "Product details fetched successfully.",
+      data: product,
+    });
+  } catch (error) {
+    console.error("Get Product Details Error:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+const updateProduct = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // body থেকে সব data destructure করা
+    const {
+      name,
+      details,
+      categoryID,
+      brandID,
+      unit,
+      serialNumbers,
+      barcode,
+      unitCost,
+      mrp,
+      dp,
+      salePrice,
+      alertQty,
+      reorderLevel,
+      taxPercent,
+      discountPercent,
+      status,
+    } = req.body;
+
+    // প্রোডাক্ট আছে কিনা চেক করা
+    const product = await productModel.findById(id);
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found",
+      });
+    }
+
+    // আপডেট করার data object তৈরি করা
+    const updateData = {
+      ...(name && { name }),
+      ...(details && { details }),
+      ...(categoryID && { categoryID }),
+      ...(brandID && { brandID }),
+      ...(unit && { unit }),
+      ...(serialNumbers && { serialNumbers }),
+      ...(barcode && { barcode }),
+      ...(unitCost && { unitCost }),
+      ...(mrp && { mrp }),
+      ...(dp && { dp }),
+      ...(salePrice && { salePrice }),
+      ...(alertQty && { alertQty }),
+      ...(reorderLevel && { reorderLevel }),
+      ...(taxPercent && { taxPercent }),
+      ...(discountPercent && { discountPercent }),
+      ...(status !== undefined && { status }),
+    };
+
+    // Update করা
+    const updatedProduct = await productModel.findByIdAndUpdate(
+      id,
+      updateData,
+      {
+        new: true,
+        runValidators: true,
+      }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Product updated successfully",
+      data: updatedProduct,
+    });
+  } catch (error) {
+    console.error("Update Product Error:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// const updateProduct = async (req, res) => {
+//   try {
+//     const { id } = req.params;
+
+//     // 🔹 Validate product id
+//     if (!mongoose.Types.ObjectId.isValid(id)) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Invalid product ID format.",
+//       });
+//     }
+
+//     // 🔹 Extract updated fields from body
+//     const {
+//       name,
+//       details,
+//       categoryID,
+//       brandID,
+//       unit,
+//       mrp,
+//       dp,
+//       alertQty,
+//       status,
+//     } = req.body;
+
+//     // 🔹 Prepare update object (only send defined fields)
+//     const updateData = {};
+//     if (name) updateData.name = name;
+//     if (details) updateData.details = details;
+//     if (categoryID) updateData.categoryID = categoryID;
+//     if (brandID) updateData.brandID = brandID;
+//     if (unit) updateData.unit = unit;
+//     if (mrp !== undefined) updateData.mrp = mrp;
+//     if (dp !== undefined) updateData.dp = dp;
+//     if (alertQty !== undefined) updateData.alertQty = alertQty;
+//     if (status !== undefined) updateData.status = status;
+
+//     // 🔹 Update product
+//     const updatedProduct = await productModel.findByIdAndUpdate(
+//       id,
+//       updateData,
+//       {
+//         new: true, // return updated document
+//         runValidators: true, // enforce schema validation
+//       }
+//     );
+
+//     if (!updatedProduct) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Product not found.",
+//       });
+//     }
+
+//     res.status(200).json({
+//       success: true,
+//       message: "Product updated successfully.",
+//       data: updatedProduct,
+//     });
+//   } catch (error) {
+//     console.error("Update Product Error:", error);
+//     res.status(500).json({
+//       success: false,
+//       message: error.message,
+//     });
+//   }
+// };
+
 const deleteProduct = async (req, res) => {
   try {
     const { id } = req.params;
@@ -191,5 +377,7 @@ module.exports = {
   addProduct,
   getProductsList,
   getAllProducts,
+  getProductDetails,
+  updateProduct,
   deleteProduct,
 };

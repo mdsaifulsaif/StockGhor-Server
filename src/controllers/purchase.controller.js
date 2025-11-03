@@ -116,6 +116,84 @@ const getPurchasesList = async (req, res) => {
   }
 };
 
+const editPurchase = async (req, res) => {
+  try {
+    const { id } = req.params; // purchaseId
+    const { products, supplierName, supplierPhone, totalAmount, dueAmount } =
+      req.body;
+
+    if (!products || products.length === 0 || !supplierName || !totalAmount) {
+      return res.status(400).json({
+        success: false,
+        message: "Products, supplier name, and total amount are required.",
+      });
+    }
+
+    const purchase = await purchaseModel.findById(id);
+    if (!purchase) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Purchase not found" });
+    }
+
+    // Step 1: Rollback previous stock & batches
+    for (const item of purchase.products) {
+      const product = await productModel.findById(item.productID);
+      if (product) {
+        product.stock = Math.max((product.stock || 0) - item.qty, 0);
+        if (product.batches && product.batches.length > 0) {
+          let qtyToRemove = item.qty;
+          for (let batch of product.batches) {
+            if (qtyToRemove <= 0) break;
+            const deduct = Math.min(batch.qty, qtyToRemove);
+            batch.qty -= deduct;
+            qtyToRemove -= deduct;
+          }
+          product.batches = product.batches.filter((b) => b.qty > 0);
+        }
+        await product.save();
+      }
+    }
+
+    // Step 2: Apply new products stock & batches
+    for (const item of products) {
+      const product = await productModel.findById(item.productID);
+      if (!product) {
+        return res.status(404).json({
+          success: false,
+          message: `Product not found: ${item.productID}`,
+        });
+      }
+
+      product.stock = (product.stock || 0) + item.qty;
+      if (!product.batches) product.batches = [];
+      product.batches.push({
+        qty: item.qty,
+        unitCost: item.unitCost,
+        purchaseDate: new Date(),
+      });
+      await product.save();
+    }
+
+    // Step 3: Update Purchase document
+    purchase.products = products;
+    purchase.supplierName = supplierName;
+    purchase.supplierPhone = supplierPhone;
+    purchase.totalAmount = totalAmount;
+    purchase.dueAmount = dueAmount || 0;
+    await purchase.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Purchase updated successfully",
+      data: purchase,
+    });
+  } catch (error) {
+    console.error("Edit Purchase Error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 const deletePurchase = async (req, res) => {
   try {
     const { id } = req.params;
@@ -173,4 +251,5 @@ module.exports = {
   addPurchase,
   getPurchasesList,
   deletePurchase,
+  editPurchase,
 };

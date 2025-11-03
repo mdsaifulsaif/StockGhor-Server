@@ -19,6 +19,11 @@ router.get(
   authMiddleware.authUserMiddleWare,
   categoryControllers.getAllCategory
 );
+router.put(
+  "/editCategori/:id",
+  authMiddleware.authUserMiddleWare,
+  categoryControllers.updateCategory
+);
 router.get(
   "/deleteCategoy/:id",
   authMiddleware.authUserMiddleWare,

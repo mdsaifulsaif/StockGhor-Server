@@ -95,6 +95,37 @@ const getAllBrands = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+const updateBrand = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, details, status } = req.body;
+
+    const updateData = {};
+
+    if (name) updateData.name = name;
+    if (details) updateData.details = details;
+
+    const updated = await brandModel.findByIdAndUpdate(id, updateData, {
+      new: true,
+    });
+
+    if (!updated) {
+      return res.status(404).json({
+        success: false,
+        message: "Brand not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Brand updated successfully",
+      data: updated,
+    });
+  } catch (error) {
+    console.error("Update Brand Error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
 
 const deleteBrand = async (req, res) => {
   try {
@@ -156,4 +187,5 @@ module.exports = {
   getBrandList,
   getAllBrands,
   deleteBrand,
+  updateBrand,
 };

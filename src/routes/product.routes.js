@@ -20,6 +20,16 @@ router.get(
   authMiddleware.authUserMiddleWare,
   productController.getAllProducts
 );
+router.get(
+  "/productDetails/:id",
+  authMiddleware.authUserMiddleWare,
+  productController.getProductDetails
+);
+router.put(
+  "/editProduct/:id",
+  authMiddleware.authUserMiddleWare,
+  productController.updateProduct
+);
 
 router.get(
   "/deleteProduct/:id",

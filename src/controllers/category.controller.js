@@ -124,6 +124,38 @@ const deleteCategory = async (req, res) => {
   }
 };
 
+const updateCategory = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, details } = req.body;
+
+    const updateData = {};
+
+    if (name) updateData.name = name;
+    if (details) updateData.details = details;
+
+    const updated = await categoryModel.findByIdAndUpdate(id, updateData, {
+      new: true,
+    });
+
+    if (!updated) {
+      return res.status(404).json({
+        success: false,
+        message: "Category not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Category updated successfully",
+      data: updated,
+    });
+  } catch (error) {
+    console.error("Update Category Error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 // const deleteCategory = async (req, res) => {
 //   try {
 //     const { id } = req.params;
@@ -154,4 +186,5 @@ module.exports = {
   getCategoryList,
   getAllCategory,
   deleteCategory,
+  updateCategory,
 };

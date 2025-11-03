@@ -9,10 +9,16 @@ router.post(
   purchaseController.addPurchase
 );
 // GET /api/purchasesList/:page/:perPage/:search
+
 router.get(
   "/purchasesList/:page/:perPage/:search",
   authMiddleware.authUserMiddleWare,
   purchaseController.getPurchasesList
+);
+router.put(
+  "/editPurchase/:id",
+  authMiddleware.authUserMiddleWare,
+  purchaseController.editPurchase
 );
 router.delete(
   "/deletePurchase/:id",

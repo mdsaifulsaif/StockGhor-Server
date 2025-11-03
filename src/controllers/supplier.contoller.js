@@ -99,6 +99,43 @@ const getAllSuppliers = async (req, res) => {
   }
 };
 
+const updateSupplier = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, phone, email, address } = req.body;
+
+    const updateData = {
+      ...(name && { name }),
+      ...(phone && { phone }),
+      ...(email && { email }),
+      ...(address && { address }),
+      
+    };
+
+    const updatedSupplier = await supplierModel.findByIdAndUpdate(
+      id,
+      updateData,
+      { new: true }
+    );
+
+    if (!updatedSupplier) {
+      return res.status(404).json({
+        success: false,
+        message: "Supplier not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Supplier updated successfully",
+      data: updatedSupplier,
+    });
+  } catch (error) {
+    console.error("Update Supplier Error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 const softDeleteSupplier = async (req, res) => {
   try {
     const { id } = req.params;
@@ -126,4 +163,5 @@ module.exports = {
   getSupplierList,
   getAllSuppliers,
   softDeleteSupplier,
+  updateSupplier
 };

@@ -81,11 +81,13 @@ const ProductSchema = new mongoose.Schema(
     decimal: { type: Number, default: 0 },
     manageStock: { type: Boolean, default: true },
     reorderLevel: { type: Number, default: 0 },
+    alertQty: { type: Number, default: 10 },
 
     // 🔹 Pricing info
-    unitCost: { type: Number, required: true },
-    mrp: { type: Number, required: true },
-    dp: { type: Number, required: true },
+    unitCost: { type: Number, default: 0 },
+    mrp: { type: Number, default: 0 },
+    dp: { type: Number, default: 0 },
+    salePrice: { type: Number, default: 0 },
     taxPercent: { type: Number, default: 0 },
     discountPercent: { type: Number, default: 0 },
 

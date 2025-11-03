@@ -19,6 +19,11 @@ router.get(
   authMiddleware.authUserMiddleWare,
   UnitControllers.getAllUnits
 );
+router.put(
+  "/editUnit/:id",
+  authMiddleware.authUserMiddleWare,
+  UnitControllers.updateUnit
+);
 router.get(
   "/deleteUnit/:id",
   authMiddleware.authUserMiddleWare,

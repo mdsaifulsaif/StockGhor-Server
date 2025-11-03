@@ -19,6 +19,11 @@ router.get(
   authMiddleware.authUserMiddleWare,
   brandControllers.getAllBrands
 );
+router.put(
+  "/editBrand/:id",
+  authMiddleware.authUserMiddleWare,
+  brandControllers.updateBrand
+);
 router.get(
   "/deleteBrands/:id",
   authMiddleware.authUserMiddleWare,
