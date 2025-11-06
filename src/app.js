@@ -16,7 +16,7 @@ const app = express();
 
 app.use(
   cors({
-    origin: ["http://localhost:5173", "https://taka-tally.netlify.app"],
+    origin: ["http://localhost:5173", "https://stockghor.netlify.app"],
     credentials: true,
   })
 );

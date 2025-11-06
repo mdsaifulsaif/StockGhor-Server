@@ -4,9 +4,140 @@ const productModel = require("../models/Product.model");
 const saleReturnModel = require("../models/saleReturn.model");
 const customerModel = require("../models/customer.model");
 
+const addSale = async (req, res) => {
+  try {
+    let {
+      customerId,
+      customerName,
+      items,
+      subTotal,
+      discount,
+      grandTotal,
+      paidAmount,
+    } = req.body;
+
+    if (!items || items.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Sale must include at least one product.",
+      });
+    }
+
+    if (customerId) customerId = new mongoose.Types.ObjectId(customerId);
+
+    const dueAmount = grandTotal - paidAmount;
+    let paymentStatus =
+      paidAmount === 0
+        ? "pending"
+        : paidAmount < grandTotal
+        ? "partial"
+        : "paid";
+
+    // 🔹 STOCK REDUCTION (FIFO or Manual)
+    for (const item of items) {
+      const product = await productModel.findById(item.productId);
+      if (!product)
+        return res.status(404).json({
+          success: false,
+          message: `Product not found: ${item.productId}`,
+        });
+
+      if (item.productId)
+        item.productId = new mongoose.Types.ObjectId(item.productId);
+
+      let qtyToSell = item.qty;
+      let batchesUsed = [];
+
+      // ✅ Manual batches
+      if (item.batchesUsed && item.batchesUsed.length > 0) {
+        for (const batchInfo of item.batchesUsed) {
+          const batch = product.batches.find(
+            (b) => String(b._id) === String(batchInfo.batchId)
+          );
+
+          if (!batch)
+            return res
+              .status(400)
+              .json({
+                success: false,
+                message: `Batch not found for ${item.name}`,
+              });
+
+          if (batch.qty < batchInfo.qty)
+            return res.status(400).json({
+              success: false,
+              message: `Not enough qty in batch ${batch._id} for ${item.name}`,
+            });
+
+          batch.qty -= batchInfo.qty;
+          qtyToSell -= batchInfo.qty;
+
+          batchesUsed.push({
+            batchId: batch._id,
+            qty: batchInfo.qty,
+            unitCost: batch.unitCost,
+            purchaseDate: batch.purchaseDate,
+          });
+        }
+      }
+      // ✅ FIFO
+      else if (product.batches && product.batches.length > 0) {
+        for (let batch of product.batches) {
+          if (qtyToSell <= 0) break;
+          if (batch.qty === 0) continue;
+
+          const deductQty = Math.min(qtyToSell, batch.qty);
+          batch.qty -= deductQty;
+          qtyToSell -= deductQty;
+
+          batchesUsed.push({
+            batchId: batch._id,
+            qty: deductQty,
+            unitCost: batch.unitCost,
+            purchaseDate: batch.purchaseDate,
+          });
+        }
+      }
+
+      // ✅ Remove empty batches
+      product.batches = product.batches.filter((b) => b.qty > 0);
+
+      // ✅ Recalculate total stock dynamically
+      product.stock = product.batches.reduce((acc, b) => acc + b.qty, 0);
+
+      await product.save();
+
+      // attach batchesUsed for record
+      item.batchesUsed = batchesUsed;
+    }
+
+    // 🔹 SAVE SALE ENTRY
+    const sale = await saleModel.create({
+      customerId: customerId || null,
+      customerName: customerName || "Walk-in Customer",
+      items,
+      subTotal,
+      discount,
+      grandTotal,
+      paidAmount,
+      dueAmount,
+      paymentStatus,
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Sale added successfully (FIFO / Manual batch applied)",
+      data: sale,
+    });
+  } catch (error) {
+    console.error("Sale Add Error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 // const addSale = async (req, res) => {
 //   try {
-//     const {
+//     let {
 //       customerId,
 //       customerName,
 //       items,
@@ -22,6 +153,139 @@ const customerModel = require("../models/customer.model");
 //         message: "Sale must include at least one product.",
 //       });
 //     }
+
+//     // Convert ObjectId for customer if exists
+//     if (customerId) customerId = new mongoose.Types.ObjectId(customerId);
+
+//     // Calculate due + payment status
+//     const dueAmount = grandTotal - paidAmount;
+//     let paymentStatus = "pending";
+//     if (paidAmount === 0) paymentStatus = "pending";
+//     else if (paidAmount < grandTotal) paymentStatus = "partial";
+//     else paymentStatus = "paid";
+
+//     // -----------------------------
+//     // 🔹 STOCK REDUCTION (FIFO or Manual)
+//     // -----------------------------
+//     for (const item of items) {
+//       const product = await productModel.findById(item.productId);
+//       if (!product) {
+//         return res.status(404).json({
+//           success: false,
+//           message: `Product not found: ${item.productId}`,
+//         });
+//       }
+
+//       if (item.productId)
+//         item.productId = new mongoose.Types.ObjectId(item.productId);
+
+//       let qtyToSell = item.qty;
+//       let batchesUsed = [];
+
+//       // ✅ If user manually selected batches
+//       if (item.batchesUsed && item.batchesUsed.length > 0) {
+//         for (const batchInfo of item.batchesUsed) {
+//           const batch = product.batches.find(
+//             (b) => String(b._id) === String(batchInfo.batchId)
+//           );
+//           if (!batch)
+//             return res
+//               .status(400)
+//               .json({
+//                 success: false,
+//                 message: `Batch not found for ${item.name}`,
+//               });
+
+//           if (batch.qty < batchInfo.qty)
+//             return res.status(400).json({
+//               success: false,
+//               message: `Not enough qty in batch ${batch._id} for ${item.name}`,
+//             });
+
+//           batch.qty -= batchInfo.qty;
+//           qtyToSell -= batchInfo.qty;
+
+//           batchesUsed.push({
+//             batchId: batch._id,
+//             qty: batchInfo.qty,
+//             unitCost: batch.unitCost,
+//             purchaseDate: batch.purchaseDate,
+//           });
+//         }
+//       }
+//       // ✅ Else use FIFO
+//       else if (product.batches && product.batches.length > 0) {
+//         for (let batch of product.batches) {
+//           if (qtyToSell <= 0) break;
+//           if (batch.qty === 0) continue;
+
+//           const deductQty = Math.min(qtyToSell, batch.qty);
+//           batch.qty -= deductQty;
+//           qtyToSell -= deductQty;
+
+//           batchesUsed.push({
+//             batchId: batch._id,
+//             qty: deductQty,
+//             unitCost: batch.unitCost,
+//             purchaseDate: batch.purchaseDate,
+//           });
+//         }
+//       }
+
+//       product.batches = product.batches.filter((b) => b.qty > 0);
+//       product.stock = Math.max((product.stock || 0) - item.qty, 0);
+
+//       await product.save();
+//       item.batchesUsed = batchesUsed;
+//     }
+
+//     // -----------------------------
+//     // 🔹 SAVE SALE ENTRY
+//     // -----------------------------
+//     const sale = await saleModel.create({
+//       customerId: customerId || null,
+//       customerName: customerName || "Walk-in Customer",
+//       items,
+//       subTotal,
+//       discount,
+//       grandTotal,
+//       paidAmount,
+//       dueAmount,
+//       paymentStatus,
+//     });
+
+//     res.status(201).json({
+//       success: true,
+//       message: "Sale added successfully (FIFO / Manual batch applied)",
+//       data: sale,
+//     });
+//   } catch (error) {
+//     console.error("Sale Add Error:", error);
+//     res.status(500).json({ success: false, message: error.message });
+//   }
+// };
+
+// const addSale = async (req, res) => {
+//   try {
+//     let {
+//       customerId,
+//       customerName,
+//       items,
+//       subTotal,
+//       discount,
+//       grandTotal,
+//       paidAmount,
+//     } = req.body;
+
+//     if (!items || items.length === 0) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Sale must include at least one product.",
+//       });
+//     }
+
+//     // ObjectId conversion
+//     if (customerId) customerId = new mongoose.Types.ObjectId(customerId);
 
 //     //  Calculate due + payment status
 //     const dueAmount = grandTotal - paidAmount;
@@ -40,12 +304,16 @@ const customerModel = require("../models/customer.model");
 //         });
 //       }
 
+//       // ObjectId conversion for product relations (optional)
+//       if (item.productId)
+//         item.productId = new mongoose.Types.ObjectId(item.productId);
+
 //       // যদি ব্যাচ সিস্টেম থাকে
 //       let qtyToSell = item.qty;
 
 //       if (product.batches && product.batches.length > 0) {
 //         for (let batch of product.batches) {
-//           if (qtyToSell <= 0) break; // কাজ শেষ
+//           if (qtyToSell <= 0) break;
 //           if (batch.qty === 0) continue;
 
 //           const deductQty = Math.min(qtyToSell, batch.qty);
@@ -53,11 +321,9 @@ const customerModel = require("../models/customer.model");
 //           qtyToSell -= deductQty;
 //         }
 
-//         // FIFO update after deduction
 //         product.batches = product.batches.filter((b) => b.qty > 0);
 //       }
 
-//       // Total stock update
 //       product.stock = Math.max((product.stock || 0) - item.qty, 0);
 //       await product.save();
 //     }
@@ -85,93 +351,6 @@ const customerModel = require("../models/customer.model");
 //     res.status(500).json({ success: false, message: error.message });
 //   }
 // };
-
-const addSale = async (req, res) => {
-  try {
-    let {
-      customerId,
-      customerName,
-      items,
-      subTotal,
-      discount,
-      grandTotal,
-      paidAmount,
-    } = req.body;
-
-    if (!items || items.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Sale must include at least one product.",
-      });
-    }
-
-    // ObjectId conversion
-    if (customerId) customerId = new mongoose.Types.ObjectId(customerId);
-
-    //  Calculate due + payment status
-    const dueAmount = grandTotal - paidAmount;
-    let paymentStatus = "pending";
-    if (paidAmount === 0) paymentStatus = "pending";
-    else if (paidAmount < grandTotal) paymentStatus = "partial";
-    else paymentStatus = "paid";
-
-    //  FIFO STOCK REDUCTION
-    for (const item of items) {
-      const product = await productModel.findById(item.productId);
-      if (!product) {
-        return res.status(404).json({
-          success: false,
-          message: `Product not found: ${item.productId}`,
-        });
-      }
-
-      // ObjectId conversion for product relations (optional)
-      if (item.productId)
-        item.productId = new mongoose.Types.ObjectId(item.productId);
-
-      // যদি ব্যাচ সিস্টেম থাকে
-      let qtyToSell = item.qty;
-
-      if (product.batches && product.batches.length > 0) {
-        for (let batch of product.batches) {
-          if (qtyToSell <= 0) break;
-          if (batch.qty === 0) continue;
-
-          const deductQty = Math.min(qtyToSell, batch.qty);
-          batch.qty -= deductQty;
-          qtyToSell -= deductQty;
-        }
-
-        product.batches = product.batches.filter((b) => b.qty > 0);
-      }
-
-      product.stock = Math.max((product.stock || 0) - item.qty, 0);
-      await product.save();
-    }
-
-    //  Save sale entry
-    const sale = await saleModel.create({
-      customerId: customerId || null,
-      customerName: customerName || "Walk-in Customer",
-      items,
-      subTotal,
-      discount,
-      grandTotal,
-      paidAmount,
-      dueAmount,
-      paymentStatus,
-    });
-
-    res.status(201).json({
-      success: true,
-      message: "Sale added successfully (FIFO applied)",
-      data: sale,
-    });
-  } catch (error) {
-    console.error("Sale Add Error:", error);
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
 
 const getSalesList = async (req, res) => {
   try {

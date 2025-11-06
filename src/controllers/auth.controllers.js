@@ -104,8 +104,34 @@ function logOutUser(req, res) {
     message: "User logged out successfully",
   });
 }
+
+async function currentUser(req, res) {
+  const token = req.cookies.token;
+
+  if (!token) {
+    return res.status(401).json({ message: "Not authenticated" });
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await userModel.findById(decoded.id).select("-password");
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.json({
+      message: "Current user feteced successfully",
+      data: user,
+    });
+  } catch (error) {
+    return error.status(401).json({ message: "Invalid token" });
+  }
+}
+
 module.exports = {
   registerUser,
   loginUser,
   logOutUser,
+  currentUser,
 };

@@ -13,4 +13,10 @@ Router.post(
   productControler.addProduct
 );
 
+Router.get(
+  "/currentUser",
+  authMiddleware.authUserMiddleWare,
+  authController.currentUser
+);
+
 module.exports = Router;
