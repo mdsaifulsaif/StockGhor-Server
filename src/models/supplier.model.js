@@ -17,6 +17,7 @@ const supplierSchema = new mongoose.Schema({
   address: { type: String, required: true },
   previousDue: { type: Number, default: 0 },
   createdAt: { type: Date, default: Date.now },
+  isActive: { type: Boolean, default: true },
 });
 
 const supplierModel = mongoose.model("Supplier", supplierSchema);

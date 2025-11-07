@@ -2,7 +2,7 @@ const categoryModel = require("../models/category.model");
 
 const addCategory = async (req, res) => {
   try {
-    const { name, description } = req.body;
+    const { name, description, isActive } = req.body;
 
     if (!name) {
       res.status(400).json({
@@ -18,6 +18,7 @@ const addCategory = async (req, res) => {
     const newCategory = await categoryModel.create({
       name,
       description,
+      isActive,
     });
 
     res.status(200).json({
@@ -127,12 +128,14 @@ const deleteCategory = async (req, res) => {
 const updateCategory = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, details } = req.body;
+    const { name, description, isActive } = req.body;
+    console.log(isActive, description);
 
     const updateData = {};
 
     if (name) updateData.name = name;
-    if (details) updateData.details = details;
+    if (description) updateData.description = description;
+    if (typeof isActive !== "undefined") updateData.isActive = isActive;
 
     const updated = await categoryModel.findByIdAndUpdate(id, updateData, {
       new: true,

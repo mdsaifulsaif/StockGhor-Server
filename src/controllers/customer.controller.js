@@ -2,7 +2,7 @@ const customerModel = require("../models/customer.model");
 
 const addCustomer = async (req, res) => {
   try {
-    const { name, phone, email, address, previousDue } = req.body;
+    const { name, phone, email, address, previousDue, isActive } = req.body;
 
     if (!name || !phone || !address) {
       return res.status(400).json({
@@ -20,6 +20,7 @@ const addCustomer = async (req, res) => {
       email,
       address,
       previousDue,
+      isActive,
     });
 
     res.status(201).json({

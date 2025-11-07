@@ -6,6 +6,7 @@ const unitSchema = new mongoose.Schema(
     shortName: { type: String, default: "" }, // e.g., pc, kg, bx
     description: { type: String, default: "" },
     status: { type: Boolean, default: true }, // active/inactive
+    isActive: { type: Boolean, default: true },
   },
   { timestamps: true }
 );

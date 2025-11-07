@@ -2,7 +2,7 @@ const supplierModel = require("../models/supplier.model");
 
 const addSupplier = async (req, res) => {
   try {
-    const { name, company, phone, email, address, previousDue } = req.body;
+    const { name, company, phone, email, address, previousDue,isActive } = req.body;
 
     // Required field check
     if (!name || !phone || !address) {
@@ -26,6 +26,7 @@ const addSupplier = async (req, res) => {
       email,
       address,
       previousDue,
+      isActive
     });
 
     res.status(201).json({

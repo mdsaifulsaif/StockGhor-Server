@@ -15,6 +15,7 @@ const customerSchema = new mongoose.Schema({
   status: { type: Boolean, default: true },
   previousDue: { type: Number, default: 0 },
   createdAt: { type: Date, default: Date.now },
+  isActive: { type: Boolean, default: true },
 });
 
 const customerModel = mongoose.model("Customer", customerSchema);

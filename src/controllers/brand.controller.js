@@ -2,7 +2,7 @@ const brandModel = require("../models/brand.model");
 
 const addBrand = async (req, res) => {
   try {
-    const { name, description } = req.body;
+    const { name, description, isActive } = req.body;
 
     if (!name) {
       return res.status(400).json({
@@ -20,6 +20,7 @@ const addBrand = async (req, res) => {
     const newBrand = await brandModel.create({
       name,
       description,
+      isActive,
     });
 
     res.status(201).json({
@@ -98,12 +99,13 @@ const getAllBrands = async (req, res) => {
 const updateBrand = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, details, status } = req.body;
+    const { name, description, isActive } = req.body;
 
     const updateData = {};
 
     if (name) updateData.name = name;
-    if (details) updateData.details = details;
+    if (description) updateData.description = description;
+    if (typeof isActive !== "undefined") updateData.isActive = isActive;
 
     const updated = await brandModel.findByIdAndUpdate(id, updateData, {
       new: true,

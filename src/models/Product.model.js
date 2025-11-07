@@ -82,6 +82,7 @@ const ProductSchema = new mongoose.Schema(
     manageStock: { type: Boolean, default: true },
     reorderLevel: { type: Number, default: 0 },
     alertQty: { type: Number, default: 10 },
+    isActive: { type: Boolean, default: true },
 
     // 🔹 Pricing info
     unitCost: { type: Number, default: 0 },

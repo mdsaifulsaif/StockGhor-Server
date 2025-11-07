@@ -21,6 +21,7 @@ const addProduct = async (req, res) => {
       barcode,
       serialNumbers,
       status,
+      isActive,
     } = req.body;
 
     // Required fields check
@@ -58,6 +59,7 @@ const addProduct = async (req, res) => {
       unitCost,
       mrp,
       dp,
+      isActive,
       taxPercent: taxPercent || 0,
       discountPercent: discountPercent || 0,
       barcode: barcode || "",

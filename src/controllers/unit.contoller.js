@@ -2,7 +2,7 @@ const unitModel = require("../models/unit.model");
 
 const addUnit = async (req, res) => {
   try {
-    const { name, description, shortName } = req.body;
+    const { name, description, shortName, isActive } = req.body;
 
     if (!name) {
       return res.status(400).json({
@@ -21,6 +21,7 @@ const addUnit = async (req, res) => {
       name,
       description,
       shortName,
+      isActive,
     });
 
     res.status(201).json({
@@ -100,12 +101,13 @@ const getAllUnits = async (req, res) => {
 const updateUnit = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, details } = req.body;
+    const { name, description, isActive } = req.body;
 
     const updateData = {};
 
     if (name) updateData.name = name;
-    if (details) updateData.details = details;
+    if (description) updateData.description = description;
+    if (typeof isActive !== "undefined") updateData.isActive = isActive;
 
     const updated = await unitModel.findByIdAndUpdate(id, updateData, {
       new: true,
