@@ -2,7 +2,8 @@ const supplierModel = require("../models/supplier.model");
 
 const addSupplier = async (req, res) => {
   try {
-    const { name, company, phone, email, address, previousDue,isActive } = req.body;
+    const { name, company, phone, email, address, previousDue, isActive } =
+      req.body;
 
     // Required field check
     if (!name || !phone || !address) {
@@ -26,7 +27,7 @@ const addSupplier = async (req, res) => {
       email,
       address,
       previousDue,
-      isActive
+      isActive,
     });
 
     res.status(201).json({
@@ -100,18 +101,55 @@ const getAllSuppliers = async (req, res) => {
   }
 };
 
+// const updateSupplier = async (req, res) => {
+//   try {
+//     const { id } = req.params;
+//     const { name, phone, email, address } = req.body;
+
+//     const updateData = {
+//       ...(name && { name }),
+//       ...(phone && { phone }),
+//       ...(email && { email }),
+//       ...(address && { address }),
+
+//     };
+
+//     const updatedSupplier = await supplierModel.findByIdAndUpdate(
+//       id,
+//       updateData,
+//       { new: true }
+//     );
+
+//     if (!updatedSupplier) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Supplier not found",
+//       });
+//     }
+
+//     res.status(200).json({
+//       success: true,
+//       message: "Supplier updated successfully",
+//       data: updatedSupplier,
+//     });
+//   } catch (error) {
+//     console.error("Update Supplier Error:", error);
+//     res.status(500).json({ success: false, message: error.message });
+//   }
+// };
+
 const updateSupplier = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, phone, email, address } = req.body;
+    const { name, phone, email, address, isActive } = req.body;
 
-    const updateData = {
-      ...(name && { name }),
-      ...(phone && { phone }),
-      ...(email && { email }),
-      ...(address && { address }),
-      
-    };
+    // Build update object dynamically
+    const updateData = {};
+    if (name) updateData.name = name;
+    if (phone) updateData.phone = phone;
+    if (email) updateData.email = email;
+    if (address) updateData.address = address;
+    if (typeof isActive !== "undefined") updateData.isActive = isActive;
 
     const updatedSupplier = await supplierModel.findByIdAndUpdate(
       id,
@@ -164,5 +202,5 @@ module.exports = {
   getSupplierList,
   getAllSuppliers,
   softDeleteSupplier,
-  updateSupplier
+  updateSupplier,
 };

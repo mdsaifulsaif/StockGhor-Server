@@ -3,21 +3,90 @@ const productModel = require("../models/Product.model");
 const categoryModel = require("../models/category.model");
 
 //  Add New Purchase
+// const addPurchase = async (req, res) => {
+//   try {
+//     const { products, supplierName, supplierPhone, totalAmount, dueAmount } =
+//       req.body;
+
+//     // Validation
+//     if (!products || products.length === 0 || !supplierName || !totalAmount) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Products, supplier name, and total amount are required.",
+//       });
+//     }
+
+//     // Loop through products and update product batches
+//     for (const item of products) {
+//       const { productID, qty, unitCost } = item;
+
+//       const product = await productModel.findById(productID);
+//       if (!product) {
+//         return res.status(404).json({
+//           success: false,
+//           message: `Product not found: ${productID}`,
+//         });
+//       }
+
+//       // ✅ Push new batch (FIFO logic)
+//       product.batches.push({
+//         qty: qty,
+//         unitCost: unitCost,
+//         purchaseDate: new Date(),
+//       });
+
+//       // ✅ Update total stock
+//       product.stock = (product.stock || 0) + qty;
+
+//       // ✅ Update latest cost for display/reference
+//       product.unitCost = unitCost;
+
+//       await product.save();
+//     }
+
+//     // ✅ Save purchase record
+//     const newPurchase = new purchaseModel({
+//       products,
+//       supplierName,
+//       supplierPhone,
+//       totalAmount,
+//       dueAmount: dueAmount || 0,
+//     });
+
+//     await newPurchase.save();
+
+//     res.status(201).json({
+//       success: true,
+//       message: "Purchase added successfully with FIFO batches.",
+//       data: newPurchase,
+//     });
+//   } catch (error) {
+//     console.error("Add Purchase Error:", error);
+//     res.status(500).json({ success: false, message: error.message });
+//   }
+// };
+
 const addPurchase = async (req, res) => {
   try {
-    const { products, supplierName, supplierPhone, totalAmount, dueAmount } =
-      req.body;
+    const { Purchase, PurchasesProduct } = req.body;
 
-    // Validation
-    if (!products || products.length === 0 || !supplierName || !totalAmount) {
+    // ✅ Validation
+    if (
+      !Purchase ||
+      !PurchasesProduct ||
+      PurchasesProduct.length === 0 ||
+      !Purchase.supplierID ||
+      !Purchase.total
+    ) {
       return res.status(400).json({
         success: false,
-        message: "Products, supplier name, and total amount are required.",
+        message:
+          "Purchase info, contactID, and at least one product are required.",
       });
     }
 
-    // Loop through products and update product batches
-    for (const item of products) {
+    // ✅ Loop through products and update stock & batches
+    for (const item of PurchasesProduct) {
       const { productID, qty, unitCost } = item;
 
       const product = await productModel.findById(productID);
@@ -28,29 +97,25 @@ const addPurchase = async (req, res) => {
         });
       }
 
-      // ✅ Push new batch (FIFO logic)
+      // Push new batch (FIFO style)
+      product.batches = product.batches || [];
       product.batches.push({
-        qty: qty,
-        unitCost: unitCost,
+        qty,
+        unitCost,
         purchaseDate: new Date(),
       });
 
-      // ✅ Update total stock
+      // Update total stock & unit cost
       product.stock = (product.stock || 0) + qty;
-
-      // ✅ Update latest cost for display/reference
       product.unitCost = unitCost;
 
       await product.save();
     }
 
-    // ✅ Save purchase record
+    // ✅ Save Purchase record
     const newPurchase = new purchaseModel({
-      products,
-      supplierName,
-      supplierPhone,
-      totalAmount,
-      dueAmount: dueAmount || 0,
+      Purchase,
+      PurchasesProduct,
     });
 
     await newPurchase.save();
@@ -62,7 +127,10 @@ const addPurchase = async (req, res) => {
     });
   } catch (error) {
     console.error("Add Purchase Error:", error);
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({
+      success: false,
+      message: error.message || "Internal Server Error",
+    });
   }
 };
 

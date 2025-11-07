@@ -105,20 +105,20 @@ const getAllCustomers = async (req, res) => {
 const updateCustomer = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, phone, email, address } = req.body;
+    const { name, phone, email, address, isActive } = req.body;
 
     // Build update object dynamically
-    const updateData = {
-      ...(name && { name }),
-      ...(phone && { phone }),
-      ...(email && { email }),
-      ...(address && { address }),
-    };
+    const updateData = {};
+    if (name) updateData.name = name;
+    if (phone) updateData.phone = phone;
+    if (email) updateData.email = email;
+    if (address) updateData.address = address;
+    if (typeof isActive !== "undefined") updateData.isActive = isActive;
 
     const updatedCustomer = await customerModel.findByIdAndUpdate(
       id,
       updateData,
-      { new: true } // Return the updated document
+      { new: true }
     );
 
     if (!updatedCustomer) {
