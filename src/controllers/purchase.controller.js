@@ -140,14 +140,12 @@ const getPurchasesList = async (req, res) => {
     const perPage = parseInt(req.params.perPage) || 10;
     const searchKey = req.params.search === "0" ? "" : req.params.search;
 
-    // Build filter
     let filter = {};
     if (searchKey && searchKey !== "0") {
-      // এখানে name বা details এর মধ্যে search হবে
       filter = {
         $or: [
-          { supplierName: { $regex: searchKey, $options: "i" } },
-          { supplierPhone: { $regex: searchKey, $options: "i" } },
+          { "Purchase.supplierName": { $regex: searchKey, $options: "i" } },
+          { "Purchase.supplierPhone": { $regex: searchKey, $options: "i" } },
         ],
       };
     }
@@ -159,12 +157,16 @@ const getPurchasesList = async (req, res) => {
       .limit(perPage)
       .sort({ createdAt: -1 })
       .populate({
-        path: "products.productID",
+        path: "PurchasesProduct.productID",
         select: "name unitCost mrp dp categoryID brandID",
         populate: [
           { path: "categoryID", select: "name" },
           { path: "brandID", select: "name" },
         ],
+      })
+      .populate({
+        path: "Purchase.supplierID",
+        select: "name mobile address",
       });
 
     res.json({
@@ -179,7 +181,7 @@ const getPurchasesList = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Get Products Error:", error);
+    console.error("Get Purchases Error:", error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
