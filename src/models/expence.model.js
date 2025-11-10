@@ -1,13 +1,32 @@
 const mongoose = require("mongoose");
 
-const ExpenceTypeSchema = new mongoose.Schema(
+const ExpenseSchema = new mongoose.Schema(
   {
-    name: { type: String, required: true }, // Product name
+    typeID: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "ExpenceType", // reference to ExpenseType collection
+      required: true,
+    },
+    amount: {
+      type: Number,
+      required: true,
+    },
+    note: {
+      type: String,
+      default: "",
+    },
+    date: {
+      type: Date,
+      default: Date.now, // default today
+    },
+    status: { type: Boolean, default: true }, // active/inactive
+    isActive: { type: Boolean, default: true },
   },
   {
     timestamps: true, // createdAt & updatedAt auto
   }
 );
 
-const ExpenceTypeModel = mongoose.model("ExpenceType", ExpenceTypeSchema);
-module.exports = ExpenceTypeModel;
+const expenceModel = mongoose.model("Expense", ExpenseSchema);
+
+module.exports = expenceModel;

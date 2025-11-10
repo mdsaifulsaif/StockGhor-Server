@@ -1,17 +1,17 @@
 const express = require("express");
 const router = express.Router();
 const authMiddleware = require("../middlewares/auth.middleware");
-const expenceContoller = require("../controllers/expence,controllers");
+const expenceTypeContoller = require("../controllers/expenceType.controllers");
 
 router.post(
-  "/createExpence",
+  "/CreateExpenceType",
   authMiddleware.authUserMiddleWare,
-  expenceContoller.createExpense
+  expenceTypeContoller.createExpenceType
 );
 router.get(
-  "/ExpenceList/:page/:perPage/:search/:from/:to",
+  "/ExpenceTypeList",
   authMiddleware.authUserMiddleWare,
-  expenceContoller.getExpenseList
+  expenceTypeContoller.getExpenceTypeList
 );
 
 module.exports = router;
