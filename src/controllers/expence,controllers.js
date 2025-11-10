@@ -83,7 +83,47 @@ const getExpenseList = async (req, res) => {
   }
 };
 
+const getExpensesByType = async (req, res) => {
+  try {
+    const { typeID, from, to } = req.params;
+
+    // Filter তৈরি
+    let filter = {
+      typeID: typeID,
+      isActive: true,
+    };
+
+    //  Date range থাকলে সেটা filter এ যোগ করা হবে
+    if (from !== "0" && to !== "0") {
+      filter.date = {
+        $gte: new Date(from),
+        $lte: new Date(to),
+      };
+    }
+
+    //  Database থেকে খোঁজা
+    const expenses = await expenseModel
+      .find(filter)
+      .populate("typeID", "name") // Type name show করবে
+      .sort({ date: -1 });
+
+    res.json({
+      success: true,
+      message: "Expenses fetched successfully by type",
+      data: expenses,
+    });
+  } catch (error) {
+    console.error("Get Expenses By Type Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   createExpense,
   getExpenseList,
+  getExpensesByType,
 };

@@ -13,5 +13,10 @@ router.get(
   authMiddleware.authUserMiddleWare,
   expenceContoller.getExpenseList
 );
+router.get(
+  "/getExpensesByType/:typeID/:from/:to",
+  authMiddleware.authUserMiddleWare,
+  expenceContoller.getExpensesByType
+);
 
 module.exports = router;
