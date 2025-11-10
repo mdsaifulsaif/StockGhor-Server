@@ -20,6 +20,19 @@ router.put(
   authMiddleware.authUserMiddleWare,
   purchaseController.editPurchase
 );
+router.post(
+  "/returnPurchase/:id",
+  authMiddleware.authUserMiddleWare,
+  purchaseController.purchaseReturn
+);
+
+// GET purchase detail by ID
+router.get(
+  "/purchaseDetail/:id",
+  authMiddleware.authUserMiddleWare,
+  purchaseController.getPurchaseDetail
+);
+
 router.delete(
   "/deletePurchase/:id",
   authMiddleware.authUserMiddleWare,

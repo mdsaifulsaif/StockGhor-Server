@@ -1,23 +1,32 @@
+const mongoose = require("mongoose");
 const purchaseModel = require("../models/purchase.model");
+
 const productModel = require("../models/Product.model");
-const categoryModel = require("../models/category.model");
+const purchaseReturnModel = require("../models/purchaseReturn.Model");
 
 //  Add New Purchase
+
 // const addPurchase = async (req, res) => {
 //   try {
-//     const { products, supplierName, supplierPhone, totalAmount, dueAmount } =
-//       req.body;
+//     const { Purchase, PurchasesProduct } = req.body;
 
-//     // Validation
-//     if (!products || products.length === 0 || !supplierName || !totalAmount) {
+//     // ✅ Validation
+//     if (
+//       !Purchase ||
+//       !PurchasesProduct ||
+//       PurchasesProduct.length === 0 ||
+//       !Purchase.supplierID ||
+//       !Purchase.total
+//     ) {
 //       return res.status(400).json({
 //         success: false,
-//         message: "Products, supplier name, and total amount are required.",
+//         message:
+//           "Purchase info, contactID, and at least one product are required.",
 //       });
 //     }
 
-//     // Loop through products and update product batches
-//     for (const item of products) {
+//     // ✅ Loop through products and update stock & batches
+//     for (const item of PurchasesProduct) {
 //       const { productID, qty, unitCost } = item;
 
 //       const product = await productModel.findById(productID);
@@ -28,29 +37,25 @@ const categoryModel = require("../models/category.model");
 //         });
 //       }
 
-//       // ✅ Push new batch (FIFO logic)
+//       // Push new batch (FIFO style)
+//       product.batches = product.batches || [];
 //       product.batches.push({
-//         qty: qty,
-//         unitCost: unitCost,
+//         qty,
+//         unitCost,
 //         purchaseDate: new Date(),
 //       });
 
-//       // ✅ Update total stock
+//       // Update total stock & unit cost
 //       product.stock = (product.stock || 0) + qty;
-
-//       // ✅ Update latest cost for display/reference
 //       product.unitCost = unitCost;
 
 //       await product.save();
 //     }
 
-//     // ✅ Save purchase record
+//     // ✅ Save Purchase record
 //     const newPurchase = new purchaseModel({
-//       products,
-//       supplierName,
-//       supplierPhone,
-//       totalAmount,
-//       dueAmount: dueAmount || 0,
+//       Purchase,
+//       PurchasesProduct,
 //     });
 
 //     await newPurchase.save();
@@ -62,7 +67,10 @@ const categoryModel = require("../models/category.model");
 //     });
 //   } catch (error) {
 //     console.error("Add Purchase Error:", error);
-//     res.status(500).json({ success: false, message: error.message });
+//     res.status(500).json({
+//       success: false,
+//       message: error.message || "Internal Server Error",
+//     });
 //   }
 // };
 
@@ -81,33 +89,35 @@ const addPurchase = async (req, res) => {
       return res.status(400).json({
         success: false,
         message:
-          "Purchase info, contactID, and at least one product are required.",
+          "Purchase info, supplierID, and at least one product are required.",
       });
     }
 
-    // ✅ Loop through products and update stock & batches
-    for (const item of PurchasesProduct) {
-      const { productID, qty, unitCost } = item;
+    // ✅ Convert IDs to ObjectId
+    Purchase.supplierID = new mongoose.Types.ObjectId(Purchase.supplierID);
 
-      const product = await productModel.findById(productID);
+    for (const item of PurchasesProduct) {
+      item.productID = new mongoose.Types.ObjectId(item.productID);
+
+      const product = await productModel.findById(item.productID);
       if (!product) {
         return res.status(404).json({
           success: false,
-          message: `Product not found: ${productID}`,
+          message: `Product not found: ${item.productID}`,
         });
       }
 
       // Push new batch (FIFO style)
       product.batches = product.batches || [];
       product.batches.push({
-        qty,
-        unitCost,
+        qty: item.qty,
+        unitCost: item.unitCost,
         purchaseDate: new Date(),
       });
 
       // Update total stock & unit cost
-      product.stock = (product.stock || 0) + qty;
-      product.unitCost = unitCost;
+      product.stock = (product.stock || 0) + item.qty;
+      product.unitCost = item.unitCost;
 
       await product.save();
     }
@@ -264,58 +274,322 @@ const editPurchase = async (req, res) => {
   }
 };
 
-// const deletePurchase = async (req, res) => {
+// const purchaseReturn = async (req, res) => {
 //   try {
-//     const { id } = req.params;
+//     const { purchaseId, items, note, returnDate } = req.body;
 
-//     const purchase = await purchaseModel.findById(id);
-//     if (!purchase) {
-//       return res.status(404).json({
+//     // 🟢 Basic validation
+//     if (!purchaseId || !items || items.length === 0) {
+//       return res.status(400).json({
 //         success: false,
-//         message: "Purchase not found",
+//         message: "Purchase ID and returned items are required.",
 //       });
 //     }
 
-//     // ✅ 1. Loop through all purchased items
-//     for (const item of purchase.products) {
-//       const product = await productModel.findById(item.productID);
-//       if (product) {
-//         // ✅ 2. FIFO batches থেকেও qty remove করতে হবে
-//         let qtyToRemove = item.qty;
-
-//         for (let batch of product.batches) {
-//           if (qtyToRemove <= 0) break;
-
-//           const removeQty = Math.min(batch.qty, qtyToRemove);
-//           batch.qty -= removeQty;
-//           qtyToRemove -= removeQty;
-//         }
-
-//         // ✅ 3. Empty batch remove করো
-//         product.batches = product.batches.filter((b) => b.qty > 0);
-
-//         // ✅ 4. Total stock কমাও
-//         product.stock = Math.max((product.stock || 0) - item.qty, 0);
-
-//         await product.save();
-//       }
+//     // 🟢 Find original purchase
+//     const purchase = await purchaseModel.findById(purchaseId);
+//     if (!purchase) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Purchase not found.",
+//       });
 //     }
 
-//     // ✅ 5. Purchase delete করো
-//     await purchaseModel.findByIdAndDelete(id);
+//     let totalReturnAmount = 0;
+//     let returnedProducts = []; // ✅ Fixed: Declare array
+
+//     // 🟢 Loop through returned items
+//     for (const item of items) {
+//       const product = await productModel.findById(item.productId);
+//       if (!product) {
+//         return res.status(404).json({
+//           success: false,
+//           message: `Product not found: ${item.productId}`,
+//         });
+//       }
+
+//       let qtyToReturn = item.qty;
+//       let batchUsed = null;
+//       let batchDetails = [];
+//       let productReturnTotal = 0; // 🔹 item-wise total tracker
+
+//       // 🟢 If batchId specified
+//       if (item.batchId) {
+//         const batch = product.batches.id(item.batchId);
+//         if (!batch) {
+//           return res.status(404).json({
+//             success: false,
+//             message: `Batch not found for product: ${item.productId}`,
+//           });
+//         }
+
+//         if (batch.qty < qtyToReturn) {
+//           return res.status(400).json({
+//             success: false,
+//             message: `Not enough stock in batch ${item.batchId}`,
+//           });
+//         }
+
+//         batch.qty -= qtyToReturn;
+//         const value = qtyToReturn * batch.unitCost;
+//         productReturnTotal += value;
+
+//         batchUsed = batch._id;
+//         batchDetails.push({
+//           batchId: batch._id,
+//           unitCost: batch.unitCost,
+//           qtyReturned: qtyToReturn,
+//           value,
+//         });
+//       }
+//       // 🟢 Else FIFO batch return
+//       else if (product.batches && product.batches.length > 0) {
+//         for (let batch of product.batches) {
+//           if (qtyToReturn <= 0) break;
+//           if (batch.qty === 0) continue;
+
+//           const deductQty = Math.min(qtyToReturn, batch.qty);
+//           batch.qty -= deductQty;
+//           qtyToReturn -= deductQty;
+
+//           const value = deductQty * batch.unitCost;
+//           productReturnTotal += value;
+
+//           batchUsed = batch._id;
+//           batchDetails.push({
+//             batchId: batch._id,
+//             unitCost: batch.unitCost,
+//             qtyReturned: deductQty,
+//             value,
+//           });
+//         }
+
+//         // remove empty batches
+//         product.batches = product.batches.filter((b) => b.qty > 0);
+//       }
+
+//       // 🟢 Update product stock
+//       product.stock = Math.max((product.stock || 0) - item.qty, 0);
+//       await product.save();
+
+//       // 🟢 Add item-wise total to grand total
+//       totalReturnAmount += productReturnTotal;
+
+//       // 🟢 Push returned product details
+//       returnedProducts.push({
+//         productID: item.productId,
+//         batchId: batchUsed,
+//         qty: item.qty,
+//         unitCost: item.unitCost || batchDetails?.[0]?.unitCost || 0,
+//         total: productReturnTotal,
+//         reason: item.reason || "",
+//       });
+//     }
+
+//     // 🟢 Save return entry in PurchaseReturn model
+//     const purchaseReturnDoc = await purchaseReturnModel.create({
+//       purchaseId,
+//       supplierID: purchase.Purchase.supplierID,
+//       returnedProducts,
+//       totalAmount: totalReturnAmount,
+//       note: note || "",
+//       date: returnDate || new Date(),
+//     });
 
 //     res.status(200).json({
 //       success: true,
-//       message: "Purchase deleted successfully & stock updated.",
+//       message: "Purchase return processed successfully.",
+//       data: purchaseReturnDoc,
 //     });
 //   } catch (error) {
-//     console.error("Delete Purchase Error:", error);
+//     console.error("Purchase Return Error:", error);
 //     res.status(500).json({
 //       success: false,
 //       message: error.message,
 //     });
 //   }
 // };
+
+const getPurchaseDetail = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // 🔹 Find purchase by ID
+    const purchase = await purchaseModel
+      .findById(id)
+      .populate({
+        path: "Purchase.supplierID",
+        select: "name phone email address",
+      }) // nested supplier info
+      .populate({
+        path: "PurchasesProduct.productID",
+        select: "name brandID categoryID stock batches",
+        populate: [
+          { path: "brandID", select: "name" },
+          { path: "categoryID", select: "name" },
+        ],
+      });
+
+    if (!purchase) {
+      return res.status(404).json({
+        success: false,
+        message: "Purchase not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: purchase,
+    });
+  } catch (error) {
+    console.error("Get Purchase Detail Error:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+const purchaseReturn = async (req, res) => {
+  try {
+    const { purchaseId, items, note, returnDate } = req.body;
+
+    if (!purchaseId || !items || items.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Purchase ID and returned items are required.",
+      });
+    }
+
+    const purchase = await purchaseModel.findById(purchaseId);
+    if (!purchase) {
+      return res.status(404).json({
+        success: false,
+        message: "Purchase not found.",
+      });
+    }
+
+    let totalReturnAmount = 0;
+    let returnedProducts = [];
+
+    for (const item of items) {
+      const product = await productModel.findById(item.productId);
+      if (!product) {
+        return res.status(404).json({
+          success: false,
+          message: `Product not found: ${item.productId}`,
+        });
+      }
+
+      let qtyToReturn = item.qty;
+      let batchUsed = null;
+      let batchDetails = [];
+      let productReturnTotal = 0;
+
+      // 🔹 Batch-wise stock check
+      if (item.batchId) {
+        const batch = product.batches.id(item.batchId);
+        if (!batch) {
+          return res.status(404).json({
+            success: false,
+            message: `Batch not found for product: ${item.productId}`,
+          });
+        }
+
+        if (qtyToReturn > batch.qty) {
+          return res.status(400).json({
+            success: false,
+            message: `Cannot return ${qtyToReturn} items. Only ${batch.qty} available in batch ${item.batchId}.`,
+          });
+        }
+
+        batch.qty -= qtyToReturn;
+        const value = qtyToReturn * batch.unitCost;
+        productReturnTotal += value;
+
+        batchUsed = batch._id;
+        batchDetails.push({
+          batchId: batch._id,
+          unitCost: batch.unitCost,
+          qtyReturned: qtyToReturn,
+          value,
+        });
+      } else {
+        // 🔹 FIFO check across batches
+        const totalBatchQty = product.batches.reduce(
+          (sum, b) => sum + b.qty,
+          0
+        );
+        if (qtyToReturn > totalBatchQty) {
+          return res.status(400).json({
+            success: false,
+            message: `Cannot return ${qtyToReturn} items. Only ${totalBatchQty} available in product batches.`,
+          });
+        }
+
+        // 🔹 Deduct from batches FIFO
+        for (let batch of product.batches) {
+          if (qtyToReturn <= 0) break;
+          if (batch.qty === 0) continue;
+
+          const deductQty = Math.min(qtyToReturn, batch.qty);
+          batch.qty -= deductQty;
+          qtyToReturn -= deductQty;
+
+          const value = deductQty * batch.unitCost;
+          productReturnTotal += value;
+
+          batchUsed = batch._id;
+          batchDetails.push({
+            batchId: batch._id,
+            unitCost: batch.unitCost,
+            qtyReturned: deductQty,
+            value,
+          });
+        }
+
+        product.batches = product.batches.filter((b) => b.qty > 0);
+      }
+
+      // 🔹 Update product stock
+      product.stock = Math.max((product.stock || 0) - item.qty, 0);
+      await product.save();
+
+      totalReturnAmount += productReturnTotal;
+
+      returnedProducts.push({
+        productID: item.productId,
+        batchId: batchUsed,
+        qty: item.qty,
+        unitCost: item.unitCost || batchDetails?.[0]?.unitCost || 0,
+        total: productReturnTotal,
+        reason: item.reason || "",
+      });
+    }
+
+    // 🔹 Save return
+    const purchaseReturnDoc = await purchaseReturnModel.create({
+      purchaseId,
+      supplierID: purchase.Purchase.supplierID,
+      returnedProducts,
+      totalAmount: totalReturnAmount,
+      note: note || "",
+      date: returnDate || new Date(),
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Purchase return processed successfully.",
+      data: purchaseReturnDoc,
+    });
+  } catch (error) {
+    console.error("Purchase Return Error:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
 
 const deletePurchase = async (req, res) => {
   try {
@@ -375,4 +649,6 @@ module.exports = {
   getPurchasesList,
   deletePurchase,
   editPurchase,
+  purchaseReturn,
+  getPurchaseDetail,
 };

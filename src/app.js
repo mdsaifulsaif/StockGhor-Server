@@ -11,6 +11,7 @@ const unitRoutes = require("./routes/unite.Routes");
 const supplierRoutes = require("./routes/supplier.routes");
 const purchaseRoutes = require("./routes/purchase.routes");
 const saleRoutes = require("./routes/sale.route");
+const expenceRoutes = require("./routes/expence.routes");
 
 const app = express();
 
@@ -45,5 +46,6 @@ app.use("/api", unitRoutes);
 app.use("/api", supplierRoutes);
 app.use("/api", purchaseRoutes);
 app.use("/api", saleRoutes);
+app.use("/api", expenceRoutes);
 
 module.exports = app;
