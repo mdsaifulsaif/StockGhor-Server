@@ -9,9 +9,14 @@ router.post(
   expenceTypeContoller.createExpenceType
 );
 router.get(
-  "/ExpenceTypeList",
+  "/ExpenceTypeList/:page/:perPage/:search",
   authMiddleware.authUserMiddleWare,
   expenceTypeContoller.getExpenceTypeList
+);
+router.put(
+  "/editExpenceType/:id",
+  authMiddleware.authUserMiddleWare,
+  expenceTypeContoller.editExpenceType
 );
 
 module.exports = router;

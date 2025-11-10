@@ -68,7 +68,43 @@ const getExpenceTypeList = async (req, res) => {
   }
 };
 
+// PUT /editExpenceType/:id
+const editExpenceType = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, isActive } = req.body;
+
+    if (!name) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Name is required" });
+    }
+
+    const updated = await expenceTypeModel.findByIdAndUpdate(
+      id,
+      { name, isActive },
+      { new: true } // return updated document
+    );
+
+    if (!updated) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Expense Type not found" });
+    }
+
+    res.json({
+      success: true,
+      message: "Expense Type updated successfully",
+      data: updated,
+    });
+  } catch (error) {
+    console.error("Edit Expense Type Error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 module.exports = {
   createExpenceType,
   getExpenceTypeList,
+  editExpenceType,
 };
