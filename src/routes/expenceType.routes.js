@@ -18,5 +18,10 @@ router.put(
   authMiddleware.authUserMiddleWare,
   expenceTypeContoller.editExpenceType
 );
+router.delete(
+  "/deleteExpenceType/:id",
+  authMiddleware.authUserMiddleWare,
+  expenceTypeContoller.deleteExpenctType
+);
 
 module.exports = router;

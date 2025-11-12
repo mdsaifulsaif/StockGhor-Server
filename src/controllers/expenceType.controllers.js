@@ -1,5 +1,7 @@
 const expenceTypeModel = require("../models/expenceType.model");
 
+const expenceModle = require("../models/expence.model");
+
 async function createExpenceType(req, res) {
   const { name } = req.body;
   console.log(name);
@@ -103,8 +105,57 @@ const editExpenceType = async (req, res) => {
   }
 };
 
+const deleteExpenctType = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // 🟠 Validation check
+    if (!id) {
+      return res.status(400).json({
+        status: false,
+        message: "Expense type ID is required",
+      });
+    }
+
+    // 🟠 Check if expense type exists
+    const existingExpType = await expenceTypeModel.findById(id);
+    if (!existingExpType) {
+      return res.status(404).json({
+        status: false,
+        message: "Expense type not found",
+      });
+    }
+
+    // 🟠 Check if this expense type is used in expense collection
+    const usedInExpense = await expenceModle.findOne({ expenceTypeID: id });
+    if (usedInExpense) {
+      return res.status(400).json({
+        status: false,
+        message:
+          "This expense type is already used in an expense record. Delete not allowed.",
+      });
+    }
+
+    // 🟢 If not used, delete it
+    await expenceTypeModel.deleteOne({ _id: id });
+
+    return res.status(200).json({
+      status: true,
+      message: "Expense type deleted successfully",
+    });
+  } catch (error) {
+    console.error("Delete Expense Type Error:", error);
+    return res.status(500).json({
+      status: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   createExpenceType,
   getExpenceTypeList,
   editExpenceType,
+  deleteExpenctType,
 };
