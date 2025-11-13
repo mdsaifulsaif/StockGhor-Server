@@ -113,10 +113,10 @@ const saleSchema = new mongoose.Schema(
           ref: "Batch",
         },
         qty: { type: Number, required: true },
-        unitPrice: { type: Number, required: true },
-        unitCost: { type: Number, required: true }, // ✅ add unitCost for profit calculation
+        unitPrice: { type: Number },
+        unitCost: { type: Number }, // ✅ add unitCost for profit calculation
         total: { type: Number, required: true },
-        profit: { type: Number, required: true }, // ✅ profit per item
+        profit: { type: Number }, // ✅ profit per item
       },
     ],
     subTotal: { type: Number, required: true },

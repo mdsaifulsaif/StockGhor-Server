@@ -16,6 +16,7 @@ const supplierSchema = new mongoose.Schema({
   status: { type: Boolean, default: true },
   address: { type: String, required: true },
   previousDue: { type: Number, default: 0 },
+  balance: { type: Number, default: 0 },
   createdAt: { type: Date, default: Date.now },
   isActive: { type: Boolean, default: true },
 });

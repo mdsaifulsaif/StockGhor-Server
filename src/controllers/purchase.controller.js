@@ -2,14 +2,127 @@ const mongoose = require("mongoose");
 const purchaseModel = require("../models/purchase.model");
 const PurchaseReturnModel = require("../models/purchaseReturn.Model");
 const productModel = require("../models/Product.model");
+const supplierModel = require("../models/supplier.model");
 const BatchModel = require("../models/Batch");
 // const purchaseReturnModel = require("../models/purchaseReturn.Model");
 
 //  Add New Purchase
 // =====================================================
 
+// const addPurchase = async (req, res) => {
+//   const session = await mongoose.startSession(); // ✅ Start Transaction
+//   session.startTransaction();
+
+//   try {
+//     const {
+//       supplierID,
+//       items,
+//       discount = 0,
+//       tax = 0,
+//       paidAmount = 0,
+//     } = req.body;
+
+//     if (!supplierID || !items || items.length === 0) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Supplier and items are required",
+//       });
+//     }
+
+//     let subTotal = 0;
+//     items.forEach((item) => {
+//       subTotal += item.purchaseQty * item.unitCost;
+//     });
+
+//     const grandTotal = subTotal - discount + tax;
+//     const dueAmount = grandTotal - paidAmount;
+
+//     // ✅ Create purchase record first (empty items)
+//     const purchase = new purchaseModel({
+//       supplierID,
+//       subTotal,
+//       discount,
+//       tax,
+//       grandTotal,
+//       paidAmount,
+//       dueAmount,
+//       invoiceNo: "INV-" + Date.now(),
+//       items: [],
+//     });
+
+//     await purchase.save({ session });
+
+//     // ✅ Loop items & process batches
+//     const updatedItems = [];
+
+//     for (const item of items) {
+//       // 1️⃣ Create Batch with purchaseId
+//       const batch = await BatchModel.create(
+//         [
+//           {
+//             productId: item.productId,
+//             purchaseId: purchase._id, // ✅ now linked
+//             batchNo: "B" + Date.now(),
+//             purchaseQty: item.purchaseQty,
+//             remainingQty: item.purchaseQty,
+//             unitCost: item.unitCost,
+//             purchaseDate: new Date(),
+//           },
+//         ],
+//         { session }
+//       );
+
+//       // 2️⃣ Update Product Stock
+//       const product = await productModel
+//         .findById(item.productId)
+//         .session(session);
+//       if (!product) throw new Error(`Product not found: ${item.productId}`);
+
+//       const newStock = product.totalStock + item.purchaseQty;
+//       const avgCost =
+//         (product.totalStock * product.averageCost +
+//           item.purchaseQty * item.unitCost) /
+//         newStock;
+
+//       product.totalStock = newStock;
+//       product.lastPurchasePrice = item.unitCost;
+//       product.averageCost = avgCost;
+//       await product.save({ session });
+
+//       // 3️⃣ Push item with batch reference
+//       updatedItems.push({
+//         productId: item.productId,
+//         batchId: batch[0]._id,
+//         purchaseQty: item.purchaseQty,
+//         unitCost: item.unitCost,
+//         totalCost: item.purchaseQty * item.unitCost,
+//       });
+//     }
+
+//     // ✅ Update purchase items
+//     purchase.items = updatedItems;
+//     await purchase.save({ session });
+
+//     await session.commitTransaction();
+//     session.endSession();
+
+//     res.json({
+//       success: true,
+//       message: "Purchase added successfully",
+//       purchase,
+//     });
+//   } catch (error) {
+//     await session.abortTransaction();
+//     session.endSession();
+//     console.error("Add Purchase Error:", error);
+//     res.status(500).json({ success: false, message: error.message });
+//   }
+// };
+
+
+// add purchae supplier balace update hocche 
 const addPurchase = async (req, res) => {
-  const session = await mongoose.startSession(); // ✅ Start Transaction
+  const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
@@ -28,6 +141,12 @@ const addPurchase = async (req, res) => {
       });
     }
 
+    // ✅ Supplier check
+    const supplier = await supplierModel.findById(supplierID).session(session);
+    if (!supplier) {
+      throw new Error("Supplier not found");
+    }
+
     let subTotal = 0;
     items.forEach((item) => {
       subTotal += item.purchaseQty * item.unitCost;
@@ -36,7 +155,7 @@ const addPurchase = async (req, res) => {
     const grandTotal = subTotal - discount + tax;
     const dueAmount = grandTotal - paidAmount;
 
-    // ✅ Create purchase record first (empty items)
+    // ✅ Create purchase record (empty items first)
     const purchase = new purchaseModel({
       supplierID,
       subTotal,
@@ -51,16 +170,15 @@ const addPurchase = async (req, res) => {
 
     await purchase.save({ session });
 
-    // ✅ Loop items & process batches
+    // ✅ Process each item & create batch
     const updatedItems = [];
 
     for (const item of items) {
-      // 1️⃣ Create Batch with purchaseId
       const batch = await BatchModel.create(
         [
           {
             productId: item.productId,
-            purchaseId: purchase._id, // ✅ now linked
+            purchaseId: purchase._id,
             batchNo: "B" + Date.now(),
             purchaseQty: item.purchaseQty,
             remainingQty: item.purchaseQty,
@@ -71,7 +189,6 @@ const addPurchase = async (req, res) => {
         { session }
       );
 
-      // 2️⃣ Update Product Stock
       const product = await productModel
         .findById(item.productId)
         .session(session);
@@ -88,7 +205,6 @@ const addPurchase = async (req, res) => {
       product.averageCost = avgCost;
       await product.save({ session });
 
-      // 3️⃣ Push item with batch reference
       updatedItems.push({
         productId: item.productId,
         batchId: batch[0]._id,
@@ -102,6 +218,15 @@ const addPurchase = async (req, res) => {
     purchase.items = updatedItems;
     await purchase.save({ session });
 
+    // ✅ Supplier Balance Update Logic
+    // পুরনো দেনা + নতুন purchase এর due
+    const totalDue =
+      (supplier.previousDue || 0) + (supplier.balance || 0) + dueAmount;
+
+    supplier.balance = totalDue; // এখনকার মোট দেনা
+    supplier.previousDue = 0; // যদি চাও reset করে দিতে পারো
+    await supplier.save({ session });
+
     await session.commitTransaction();
     session.endSession();
 
@@ -109,6 +234,7 @@ const addPurchase = async (req, res) => {
       success: true,
       message: "Purchase added successfully",
       purchase,
+      supplierBalance: supplier.balance,
     });
   } catch (error) {
     await session.abortTransaction();
@@ -118,131 +244,8 @@ const addPurchase = async (req, res) => {
   }
 };
 
-// const addPurchase = async (req, res) => {
-//   try {
-//     const { supplierID, items, discount, tax, paidAmount } = req.body;
 
-//     let subTotal = 0;
-
-//     // calculate totals
-//     items.forEach((item) => {
-//       subTotal += item.purchaseQty * item.unitCost;
-//     });
-
-//     const grandTotal = subTotal - (discount || 0) + (tax || 0);
-//     const dueAmount = grandTotal - (paidAmount || 0);
-
-//     // create purchase record
-//     const purchase = new purchaseModel({
-//       supplierID,
-//       items,
-//       subTotal,
-//       discount,
-//       tax,
-//       grandTotal,
-//       paidAmount,
-//       dueAmount,
-//       invoiceNo: "INV-" + Date.now(),
-//     });
-
-//     // batch create + product update
-//     for (const item of items) {
-//       const batch = new BatchModel({
-//         productId: item.productId,
-//         batchNo: "B" + Date.now(),
-//         purchaseQty: item.purchaseQty,
-//         remainingQty: item.purchaseQty,
-//         unitCost: item.unitCost,
-//         purchaseDate: new Date(),
-//       });
-//       await batch.save();
-
-//       // attach batchId
-//       item.batchId = batch._id;
-
-//       // update product stock
-//       const product = await productModel.findById(item.productId);
-//       const newStock = product.totalStock + item.purchaseQty;
-//       const avgCost =
-//         (product.totalStock * product.averageCost +
-//           item.purchaseQty * item.unitCost) /
-//         newStock;
-
-//       product.totalStock = newStock;
-//       product.lastPurchasePrice = item.unitCost;
-//       product.averageCost = avgCost;
-//       await product.save();
-//     }
-
-//     await purchase.save();
-
-//     res.json({ success: true, purchase });
-//   } catch (error) {
-//     console.error(error);
-//     res.status(500).json({ success: false, message: "Server Error" });
-//   }
-// };
-
-// const purchaseReturn = async (req, res) => {
-//   try {
-//     const { purchaseId, returnItems } = req.body;
-//     // returnItems = [{ productId, returnQty }]
-
-//     if (!purchaseId || !returnItems || returnItems.length === 0) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "Purchase ID and return items are required",
-//       });
-//     }
-
-//     const purchase = await purchaseModel.findById(purchaseId);
-//     if (!purchase)
-//       return res
-//         .status(404)
-//         .json({ success: false, message: "Purchase not found" });
-
-//     for (let item of returnItems) {
-//       const product = await purchaseModel.findById(item.productId);
-//       if (!product) continue;
-
-//       let qtyToReturn = item.returnQty;
-
-//       // Fetch batches in FIFO order (oldest first)
-//       const batches = await BatchModel.find({
-//         productId: item.productId,
-//         remainingQty: { $gt: 0 },
-//       }).sort({ purchaseDate: 1 }); // oldest first
-
-//       for (let batch of batches) {
-//         if (qtyToReturn <= 0) break;
-
-//         if (batch.remainingQty >= qtyToReturn) {
-//           batch.remainingQty -= qtyToReturn;
-//           await batch.save();
-//           qtyToReturn = 0;
-//         } else {
-//           qtyToReturn -= batch.remainingQty;
-//           batch.remainingQty = 0;
-//           await batch.save();
-//         }
-//       }
-
-//       // Update product totalStock and averageCost if needed
-//       product.totalStock -= item.returnQty;
-//       if (product.totalStock < 0) product.totalStock = 0; // safeguard
-//       await product.save();
-//     }
-
-//     return res.status(200).json({
-//       success: true,
-//       message: "Purchase return processed successfully",
-//     });
-//   } catch (error) {
-//     console.error("Purchase Return Error:", error);
-//     return res.status(500).json({ success: false, message: error.message });
-//   }
-// };
-
+// return purchae supplier balace update hocche  na thik korte hove
 const purchaseReturn = async (req, res) => {
   try {
     const { purchaseId, returnItems, note } = req.body;
@@ -446,109 +449,11 @@ const getPurchasesList = async (req, res) => {
   }
 };
 
-// const editPurchase = async (req, res) => {
-//   try {
-//     const { purchaseId } = req.params;
-//     const {
-//       supplierID,
-//       items, // [{ productID, purchaseQty, unitCost, totalCost }]
-//       subTotal,
-//       discount,
-//       tax,
-//       grandTotal,
-//       paidAmount,
-//       status,
-//     } = req.body;
-
-//     // ✅ Validate
-//     if (!purchaseId || !items || items.length === 0) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "Purchase ID and items are required",
-//       });
-//     }
-
-//     // ✅ Find the existing purchase
-//     const existingPurchase = await purchaseModel.findById(purchaseId);
-//     if (!existingPurchase) {
-//       return res.status(404).json({
-//         success: false,
-//         message: "Purchase not found",
-//       });
-//     }
-
-//     // ✅ Revert old stock before editing
-//     for (const oldItem of existingPurchase.items) {
-//       const product = await productModel.findById(oldItem.productId);
-//       if (product) {
-//         product.totalStock = Math.max(
-//           product.totalStock - oldItem.purchaseQty,
-//           0
-//         );
-//         await product.save();
-
-//         // Delete old batch
-//         await BatchModel.deleteMany({
-//           purchaseId: existingPurchase._id,
-//           productId: oldItem.productId,
-//         });
-//       }
-//     }
-
-//     // ✅ Now update new items & stock
-//     const newItems = [];
-//     for (const newItem of items) {
-//       const product = await productModel.findById(newItem.productID);
-//       if (!product) continue;
-
-//       // Create new batch (FIFO)
-//       const batch = await BatchModel.create({
-//         productId: newItem.productID,
-//         purchaseId: purchaseId,
-//         unitCost: newItem.unitCost,
-//         remainingQty: newItem.purchaseQty,
-//         purchaseDate: new Date(),
-//       });
-
-//       // Update product stock
-//       product.totalStock = (product.totalStock || 0) + newItem.purchaseQty;
-//       await product.save();
-
-//       newItems.push({
-//         productId: newItem.productID,
-//         purchaseQty: newItem.purchaseQty,
-//         unitCost: newItem.unitCost,
-//         totalCost: newItem.totalCost,
-//       });
-//     }
-
-//     // ✅ Update purchase record
-//     existingPurchase.supplierID = supplierID || existingPurchase.supplierID;
-//     existingPurchase.items = newItems;
-//     existingPurchase.subTotal = subTotal;
-//     existingPurchase.discount = discount;
-//     existingPurchase.tax = tax;
-//     existingPurchase.grandTotal = grandTotal;
-//     existingPurchase.paidAmount = paidAmount;
-//     existingPurchase.dueAmount = grandTotal - paidAmount;
-//     existingPurchase.status = status || "Completed";
-//     await existingPurchase.save();
-
-//     res.status(200).json({
-//       success: true,
-//       message: "Purchase updated successfully",
-//       updatedPurchase: existingPurchase,
-//     });
-//   } catch (error) {
-//     console.error("Edit Purchase Error:", error);
-//     res.status(500).json({
-//       success: false,
-//       message: error.message,
-//     });
-//   }
-// };
-
+// edite purchae supplier balace update hocche 
 const editPurchase = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
     const {
       purchaseId,
@@ -569,7 +474,11 @@ const editPurchase = async (req, res) => {
       });
     }
 
-    const existingPurchase = await purchaseModel.findById(purchaseId);
+    // ✅ Find existing purchase
+    const existingPurchase = await purchaseModel
+      .findById(purchaseId)
+      .session(session);
+
     if (!existingPurchase) {
       return res.status(404).json({
         success: false,
@@ -577,7 +486,13 @@ const editPurchase = async (req, res) => {
       });
     }
 
-    // Revert old stock
+    // ✅ Find supplier
+    const supplier = await supplierModel.findById(supplierID).session(session);
+    if (!supplier) {
+      throw new Error("Supplier not found");
+    }
+
+    // ✅ Revert old stock & batches
     for (const oldItem of existingPurchase.items) {
       const product = await productModel.findById(oldItem.productId);
       if (product) {
@@ -585,40 +500,60 @@ const editPurchase = async (req, res) => {
           product.totalStock - oldItem.purchaseQty,
           0
         );
-        await product.save();
-
-        await BatchModel.deleteMany({
-          purchaseId: existingPurchase._id,
-          productId: oldItem.productId,
-        });
+        await product.save({ session });
       }
+
+      await BatchModel.deleteMany({
+        purchaseId: existingPurchase._id,
+        productId: oldItem.productId,
+      }).session(session);
     }
 
-    // Update new items
+    // ✅ Add new items & update stock
     const newItems = [];
     for (const newItem of items) {
-      const product = await productModel.findById(newItem.productID);
+      const product = await productModel
+        .findById(newItem.productID)
+        .session(session);
       if (!product) continue;
 
-      await BatchModel.create({
-        productId: newItem.productID,
-        unitCost: newItem.unitCost,
-        purchaseQty: newItem.purchaseQty, // ✅ এখন পাঠানো হলো
-        remainingQty: newItem.purchaseQty,
-        purchaseDate: new Date(),
-      });
+      const newBatch = await BatchModel.create(
+        [
+          {
+            productId: newItem.productID,
+            purchaseId: existingPurchase._id,
+            batchNo: "B" + Date.now(),
+            purchaseQty: newItem.purchaseQty,
+            remainingQty: newItem.purchaseQty,
+            unitCost: newItem.unitCost,
+            purchaseDate: new Date(),
+          },
+        ],
+        { session }
+      );
 
       product.totalStock = (product.totalStock || 0) + newItem.purchaseQty;
-      await product.save();
+      await product.save({ session });
 
       newItems.push({
         productId: newItem.productID,
+        batchId: newBatch[0]._id,
         purchaseQty: newItem.purchaseQty,
         unitCost: newItem.unitCost,
         totalCost: newItem.totalCost,
       });
     }
 
+    // ✅ Calculate new due
+    const newDueAmount = grandTotal - paidAmount;
+
+    // ✅ Supplier Balance Update Logic
+    // পুরোনো due বাদ দিয়ে নতুন due যোগ
+    const previousDue = supplier.balance - existingPurchase.dueAmount;
+    supplier.balance = previousDue + newDueAmount;
+    await supplier.save({ session });
+
+    // ✅ Update purchase details
     existingPurchase.supplierID = supplierID || existingPurchase.supplierID;
     existingPurchase.items = newItems;
     existingPurchase.subTotal = subTotal;
@@ -626,16 +561,22 @@ const editPurchase = async (req, res) => {
     existingPurchase.tax = tax;
     existingPurchase.grandTotal = grandTotal;
     existingPurchase.paidAmount = paidAmount;
-    existingPurchase.dueAmount = grandTotal - paidAmount;
+    existingPurchase.dueAmount = newDueAmount;
     existingPurchase.status = status || "Completed";
-    await existingPurchase.save();
+    await existingPurchase.save({ session });
+
+    await session.commitTransaction();
+    session.endSession();
 
     res.status(200).json({
       success: true,
       message: "Purchase updated successfully",
       updatedPurchase: existingPurchase,
+      updatedSupplierBalance: supplier.balance,
     });
   } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
     console.error("Edit Purchase Error:", error);
     res.status(500).json({ success: false, message: error.message });
   }
@@ -1333,11 +1274,6 @@ module.exports = {
   purchaseReturn,
   getPurchaseDetail,
 };
-
-
-
-
-
 
 // const purchaseReturn = async (req, res) => {
 //   const session = await mongoose.startSession();
