@@ -8,65 +8,37 @@ const BatchModel = require("../models/Batch");
 //  Add New Purchase
 // =====================================================
 
-// addPurchase = async (req, res) => {
-//   try {
-//     const { productId, purchaseQty, unitCost } = req.body;
-
-//     // 1️⃣ নতুন batch তৈরি
-//     const newBatch = new Batch({
-//       productId,
-//       batchNo: "B" + Date.now(),
-//       purchaseQty,
-//       remainingQty: purchaseQty,
-//       unitCost,
-//       purchaseDate: new Date(),
-//     });
-//     await newBatch.save();
-
-//     // 2️⃣ Product update
-//     const product = await productModel.findById(productId);
-
-//     const oldStock = product.totalStock || 0;
-//     const oldCost = product.averageCost || 0;
-//     const newStock = oldStock + purchaseQty;
-
-//     // Weighted average cost হিসাব
-//     const avgCost =
-//       newStock === 0
-//         ? unitCost
-//         : (oldStock * oldCost + purchaseQty * unitCost) / newStock;
-
-//     product.totalStock = newStock;
-//     product.lastPurchasePrice = unitCost;
-//     product.averageCost = avgCost;
-
-//     await product.save();
-
-//     res.json({ success: true, message: "Purchase added", newBatch, product });
-//   } catch (error) {
-//     console.error(error);
-//     res.status(500).json({ success: false, message: "Server error" });
-//   }
-// };
-
 const addPurchase = async (req, res) => {
+  const session = await mongoose.startSession(); // ✅ Start Transaction
+  session.startTransaction();
+
   try {
-    const { supplierID, items, discount, tax, paidAmount } = req.body;
+    const {
+      supplierID,
+      items,
+      discount = 0,
+      tax = 0,
+      paidAmount = 0,
+    } = req.body;
+
+    if (!supplierID || !items || items.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Supplier and items are required",
+      });
+    }
 
     let subTotal = 0;
-
-    // calculate totals
     items.forEach((item) => {
       subTotal += item.purchaseQty * item.unitCost;
     });
 
-    const grandTotal = subTotal - (discount || 0) + (tax || 0);
-    const dueAmount = grandTotal - (paidAmount || 0);
+    const grandTotal = subTotal - discount + tax;
+    const dueAmount = grandTotal - paidAmount;
 
-    // create purchase record
+    // ✅ Create purchase record first (empty items)
     const purchase = new purchaseModel({
       supplierID,
-      items,
       subTotal,
       discount,
       tax,
@@ -74,25 +46,37 @@ const addPurchase = async (req, res) => {
       paidAmount,
       dueAmount,
       invoiceNo: "INV-" + Date.now(),
+      items: [],
     });
 
-    // batch create + product update
+    await purchase.save({ session });
+
+    // ✅ Loop items & process batches
+    const updatedItems = [];
+
     for (const item of items) {
-      const batch = new BatchModel({
-        productId: item.productId,
-        batchNo: "B" + Date.now(),
-        purchaseQty: item.purchaseQty,
-        remainingQty: item.purchaseQty,
-        unitCost: item.unitCost,
-        purchaseDate: new Date(),
-      });
-      await batch.save();
+      // 1️⃣ Create Batch with purchaseId
+      const batch = await BatchModel.create(
+        [
+          {
+            productId: item.productId,
+            purchaseId: purchase._id, // ✅ now linked
+            batchNo: "B" + Date.now(),
+            purchaseQty: item.purchaseQty,
+            remainingQty: item.purchaseQty,
+            unitCost: item.unitCost,
+            purchaseDate: new Date(),
+          },
+        ],
+        { session }
+      );
 
-      // attach batchId
-      item.batchId = batch._id;
+      // 2️⃣ Update Product Stock
+      const product = await productModel
+        .findById(item.productId)
+        .session(session);
+      if (!product) throw new Error(`Product not found: ${item.productId}`);
 
-      // update product stock
-      const product = await productModel.findById(item.productId);
       const newStock = product.totalStock + item.purchaseQty;
       const avgCost =
         (product.totalStock * product.averageCost +
@@ -102,17 +86,102 @@ const addPurchase = async (req, res) => {
       product.totalStock = newStock;
       product.lastPurchasePrice = item.unitCost;
       product.averageCost = avgCost;
-      await product.save();
+      await product.save({ session });
+
+      // 3️⃣ Push item with batch reference
+      updatedItems.push({
+        productId: item.productId,
+        batchId: batch[0]._id,
+        purchaseQty: item.purchaseQty,
+        unitCost: item.unitCost,
+        totalCost: item.purchaseQty * item.unitCost,
+      });
     }
 
-    await purchase.save();
+    // ✅ Update purchase items
+    purchase.items = updatedItems;
+    await purchase.save({ session });
 
-    res.json({ success: true, purchase });
+    await session.commitTransaction();
+    session.endSession();
+
+    res.json({
+      success: true,
+      message: "Purchase added successfully",
+      purchase,
+    });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ success: false, message: "Server Error" });
+    await session.abortTransaction();
+    session.endSession();
+    console.error("Add Purchase Error:", error);
+    res.status(500).json({ success: false, message: error.message });
   }
 };
+
+// const addPurchase = async (req, res) => {
+//   try {
+//     const { supplierID, items, discount, tax, paidAmount } = req.body;
+
+//     let subTotal = 0;
+
+//     // calculate totals
+//     items.forEach((item) => {
+//       subTotal += item.purchaseQty * item.unitCost;
+//     });
+
+//     const grandTotal = subTotal - (discount || 0) + (tax || 0);
+//     const dueAmount = grandTotal - (paidAmount || 0);
+
+//     // create purchase record
+//     const purchase = new purchaseModel({
+//       supplierID,
+//       items,
+//       subTotal,
+//       discount,
+//       tax,
+//       grandTotal,
+//       paidAmount,
+//       dueAmount,
+//       invoiceNo: "INV-" + Date.now(),
+//     });
+
+//     // batch create + product update
+//     for (const item of items) {
+//       const batch = new BatchModel({
+//         productId: item.productId,
+//         batchNo: "B" + Date.now(),
+//         purchaseQty: item.purchaseQty,
+//         remainingQty: item.purchaseQty,
+//         unitCost: item.unitCost,
+//         purchaseDate: new Date(),
+//       });
+//       await batch.save();
+
+//       // attach batchId
+//       item.batchId = batch._id;
+
+//       // update product stock
+//       const product = await productModel.findById(item.productId);
+//       const newStock = product.totalStock + item.purchaseQty;
+//       const avgCost =
+//         (product.totalStock * product.averageCost +
+//           item.purchaseQty * item.unitCost) /
+//         newStock;
+
+//       product.totalStock = newStock;
+//       product.lastPurchasePrice = item.unitCost;
+//       product.averageCost = avgCost;
+//       await product.save();
+//     }
+
+//     await purchase.save();
+
+//     res.json({ success: true, purchase });
+//   } catch (error) {
+//     console.error(error);
+//     res.status(500).json({ success: false, message: "Server Error" });
+//   }
+// };
 
 // const purchaseReturn = async (req, res) => {
 //   try {
@@ -572,6 +641,118 @@ const editPurchase = async (req, res) => {
   }
 };
 
+const getPurchaseDetail = async (req, res) => {
+  try {
+    const { purchaseId } = req.params;
+
+    console.log(purchaseId);
+
+    if (!purchaseId) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Purchase ID is required" });
+    }
+
+    const purchase = await purchaseModel
+      .findById(purchaseId)
+      .populate({
+        path: "supplierID",
+        select: "name mobile address",
+      })
+      .populate({
+        path: "items.productId",
+        select: "name unitCost mrp dp categoryID brandID",
+        populate: [
+          { path: "categoryID", select: "name" },
+          { path: "brandID", select: "name" },
+        ],
+      });
+
+    if (!purchase) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Purchase not found" });
+    }
+
+    // 🔹 Find all batches related to this purchase
+    const batches = await BatchModel.find({ purchaseId })
+      .populate({
+        path: "productId",
+        select: "name",
+      })
+      .sort({ createdAt: 1 });
+
+    // 🔹 Format final response object
+    const formattedData = {
+      _id: purchase._id,
+      invoiceNo: purchase.invoiceNo,
+      purchaseDate: purchase.purchaseDate,
+      supplier: purchase.supplierID
+        ? {
+            _id: purchase.supplierID._id,
+            name: purchase.supplierID.name,
+            mobile: purchase.supplierID.mobile,
+            address: purchase.supplierID.address,
+          }
+        : null,
+      items: purchase.items.map((item) => ({
+        _id: item._id,
+        product: item.productId
+          ? {
+              _id: item.productId._id,
+              name: item.productId.name,
+              unitCost: item.productId.unitCost,
+              mrp: item.productId.mrp,
+              dp: item.productId.dp,
+              category: item.productId.categoryID
+                ? {
+                    _id: item.productId.categoryID._id,
+                    name: item.productId.categoryID.name,
+                  }
+                : null,
+              brand: item.productId.brandID
+                ? {
+                    _id: item.productId.brandID._id,
+                    name: item.productId.brandID.name,
+                  }
+                : null,
+            }
+          : null,
+        purchaseQty: item.purchaseQty,
+        unitCost: item.unitCost,
+        totalCost: item.totalCost,
+      })),
+      batches: batches.map((b) => ({
+        _id: b._id,
+        product: b.productId ? b.productId.name : "N/A",
+        unitCost: b.unitCost,
+        purchaseQty: b.purchaseQty,
+        remainingQty: b.remainingQty,
+        purchaseDate: b.purchaseDate,
+        expireDate: b.expireDate,
+      })),
+      subTotal: purchase.subTotal,
+      discount: purchase.discount,
+      tax: purchase.tax,
+      grandTotal: purchase.grandTotal,
+      paidAmount: purchase.paidAmount,
+      dueAmount: purchase.dueAmount,
+      status: purchase.status,
+      note: purchase.notes,
+      createdAt: purchase.createdAt,
+    };
+
+    res.status(200).json({
+      success: true,
+      message: "Purchase details fetched successfully",
+      data: formattedData,
+    });
+  } catch (error) {
+    console.error("Get Purchase Detail Error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 // =====================================================
 
 // const addPurchase = async (req, res) => {
@@ -910,45 +1091,45 @@ const editPurchase = async (req, res) => {
 //   }
 // };
 
-const getPurchaseDetail = async (req, res) => {
-  try {
-    const { id } = req.params;
+// const getPurchaseDetail = async (req, res) => {
+//   try {
+//     const { id } = req.params;
 
-    // 🔹 Find purchase by ID
-    const purchase = await purchaseModel
-      .findById(id)
-      .populate({
-        path: "Purchase.supplierID",
-        select: "name phone email address",
-      }) // nested supplier info
-      .populate({
-        path: "PurchasesProduct.productID",
-        select: "name brandID categoryID stock batches",
-        populate: [
-          { path: "brandID", select: "name" },
-          { path: "categoryID", select: "name" },
-        ],
-      });
+//     // 🔹 Find purchase by ID
+//     const purchase = await purchaseModel
+//       .findById(id)
+//       .populate({
+//         path: "Purchase.supplierID",
+//         select: "name phone email address",
+//       }) // nested supplier info
+//       .populate({
+//         path: "PurchasesProduct.productID",
+//         select: "name brandID categoryID stock batches",
+//         populate: [
+//           { path: "brandID", select: "name" },
+//           { path: "categoryID", select: "name" },
+//         ],
+//       });
 
-    if (!purchase) {
-      return res.status(404).json({
-        success: false,
-        message: "Purchase not found",
-      });
-    }
+//     if (!purchase) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Purchase not found",
+//       });
+//     }
 
-    res.status(200).json({
-      success: true,
-      data: purchase,
-    });
-  } catch (error) {
-    console.error("Get Purchase Detail Error:", error);
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
+//     res.status(200).json({
+//       success: true,
+//       data: purchase,
+//     });
+//   } catch (error) {
+//     console.error("Get Purchase Detail Error:", error);
+//     res.status(500).json({
+//       success: false,
+//       message: error.message,
+//     });
+//   }
+// };
 
 // const purchaseReturn = async (req, res) => {
 //   try {
@@ -1152,3 +1333,122 @@ module.exports = {
   purchaseReturn,
   getPurchaseDetail,
 };
+
+
+
+
+
+
+// const purchaseReturn = async (req, res) => {
+//   const session = await mongoose.startSession();
+//   session.startTransaction();
+
+//   try {
+//     const { purchaseId, returnItems, note } = req.body;
+//     // returnItems = [{ productID, returnQty, reason }]
+
+//     if (!purchaseId || !returnItems || returnItems.length === 0) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Purchase ID and return items are required",
+//       });
+//     }
+
+//     // 🔍 Find Purchase
+//     const purchase = await purchaseModel.findById(purchaseId).session(session);
+//     if (!purchase) {
+//       await session.abortTransaction();
+//       return res
+//         .status(404)
+//         .json({ success: false, message: "Purchase not found" });
+//     }
+
+//     let totalAmount = 0;
+//     const returnedProducts = [];
+
+//     // 🔁 Process each returned item
+//     for (const item of returnItems) {
+//       const product = await productModel
+//         .findById(item.productID)
+//         .session(session);
+//       if (!product) continue;
+
+//       let qtyToReturn = item.returnQty;
+//       let totalReturnedThisProduct = 0;
+
+//       // 🧾 Find FIFO batches
+//       const batches = await BatchModel.find({
+//         productId: item.productID,
+//         remainingQty: { $gt: 0 },
+//       })
+//         .sort({ purchaseDate: 1 })
+//         .session(session);
+
+//       for (const batch of batches) {
+//         if (qtyToReturn <= 0) break;
+
+//         const deductQty = Math.min(batch.remainingQty, qtyToReturn);
+//         batch.remainingQty -= deductQty;
+//         await batch.save({ session });
+
+//         returnedProducts.push({
+//           productID: item.productID,
+//           batchId: batch._id,
+//           qty: deductQty,
+//           unitCost: batch.unitCost,
+//           total: deductQty * batch.unitCost,
+//           reason: item.reason || "",
+//         });
+
+//         totalAmount += deductQty * batch.unitCost;
+//         totalReturnedThisProduct += deductQty;
+//         qtyToReturn -= deductQty;
+//       }
+
+//       // ✅ Update product stock
+//       if (totalReturnedThisProduct > 0) {
+//         const newStock = Math.max(
+//           product.totalStock - totalReturnedThisProduct,
+//           0
+//         );
+//         product.totalStock = newStock;
+//         await product.save({ session });
+//       }
+//     }
+
+//     // ✅ Save Purchase Return Record
+//     const purchaseReturn = new PurchaseReturnModel({
+//       purchaseId,
+//       supplierID: purchase.supplierID,
+//       returnedProducts,
+//       totalAmount,
+//       note: note || "",
+//       returnDate: new Date(),
+//     });
+
+//     await purchaseReturn.save({ session });
+
+//     // ✅ Update Purchase Record (optional)
+//     purchase.returnAmount =
+//       (purchase.returnAmount || 0) + totalAmount; // track total return
+//     await purchase.save({ session });
+
+//     await session.commitTransaction();
+//     session.endSession();
+
+//     res.status(200).json({
+//       success: true,
+//       message: "Purchase return processed successfully",
+//       data: {
+//         purchaseReturn,
+//         totalReturned: returnedProducts.length,
+//         returnedProducts,
+//       },
+//     });
+//   } catch (error) {
+//     await session.abortTransaction();
+//     session.endSession();
+//     console.error("Purchase Return Error:", error);
+//     res.status(500).json({ success: false, message: error.message });
+//   }
+// };

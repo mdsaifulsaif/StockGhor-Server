@@ -13,6 +13,13 @@ Router.get(
   authMiddleware.authUserMiddleWare,
   saleController.getSalesList
 );
+
+Router.get(
+  "/saleDetails/:id",
+  authMiddleware.authUserMiddleWare,
+  saleController.getSaleDetail
+);
+
 Router.get(
   "/deleteSale/:id",
   authMiddleware.authUserMiddleWare,

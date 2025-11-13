@@ -16,6 +16,7 @@ const customerSchema = new mongoose.Schema({
   previousDue: { type: Number, default: 0 },
   createdAt: { type: Date, default: Date.now },
   isActive: { type: Boolean, default: true },
+  balance: { type: Number, default: 0 },
 });
 
 const customerModel = mongoose.model("Customer", customerSchema);

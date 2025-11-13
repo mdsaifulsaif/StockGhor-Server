@@ -28,7 +28,7 @@ router.post(
 
 // GET purchase detail by ID
 router.get(
-  "/purchaseDetail/:id",
+  "/purchaseDetail/:purchaseId",
   authMiddleware.authUserMiddleWare,
   purchaseController.getPurchaseDetail
 );
