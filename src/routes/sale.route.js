@@ -26,14 +26,14 @@ Router.get(
   saleController.deleteSale
 );
 Router.put(
-  "/editSale/:id",
+  "/editSale/:saleId",
   authMiddleware.authUserMiddleWare,
   saleController.editSale
 );
-Router.post(
-  "/returnSale",
-  authMiddleware.authUserMiddleWare,
-  saleController.addSaleReturn
-);
+// Router.post(
+//   "/returnSale/:saleId",
+//   authMiddleware.authUserMiddleWare,
+//   saleController.addSaleReturn
+// );
 
 module.exports = Router;

@@ -13,6 +13,7 @@ const purchaseRoutes = require("./routes/purchase.routes");
 const saleRoutes = require("./routes/sale.route");
 const expenceTypeRoutes = require("./routes/expenceType.routes");
 const expenceRoutes = require("./routes/expence.routes");
+const saleReturnRoutes = require("./routes/saleReturn.routes");
 
 const app = express();
 
@@ -49,5 +50,6 @@ app.use("/api", purchaseRoutes);
 app.use("/api", saleRoutes);
 app.use("/api", expenceTypeRoutes);
 app.use("/api", expenceRoutes);
+app.use("/api", saleReturnRoutes);
 
 module.exports = app;
