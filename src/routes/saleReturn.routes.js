@@ -8,6 +8,11 @@ router.post(
   authMiddleware.authUserMiddleWare,
   saleReturnController.addSaleReturn
 );
+router.get(
+  "/saleReturnList/:page/:perPage/:from/:to/:search",
+  authMiddleware.authUserMiddleWare,
+  saleReturnController.getSaleReturnList
+);
 
 router;
 

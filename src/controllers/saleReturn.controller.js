@@ -162,6 +162,156 @@ const addSaleReturn = async (req, res) => {
   }
 };
 
+// with out formating
+// const getSaleReturnList = async (req, res) => {
+//   try {
+//     const page = parseInt(req.params.page) || 1;
+//     const perPage = parseInt(req.params.perPage) || 20;
+
+//     const fromDate = req.params.from !== "0" ? new Date(req.params.from) : null;
+//     const toDate = req.params.to !== "0" ? new Date(req.params.to) : null;
+//     const searchKey = req.params.search !== "0" ? req.params.search : "";
+
+//     let filter = {};
+
+//     //  Search (by customer name, saleId, note)
+//     if (searchKey) {
+//       filter.$or = [
+//         { note: { $regex: searchKey, $options: "i" } },
+//         { saleId: { $regex: searchKey, $options: "i" } },
+//       ];
+//     }
+
+//     //  Date filter
+//     if (fromDate && toDate) {
+//       filter.createdAt = { $gte: fromDate, $lte: toDate };
+//     }
+
+//     // 📌 Count
+//     const total = await saleReturnModel.countDocuments(filter);
+
+//     // 📌 Fetch Data
+//     const saleReturns = await saleReturnModel
+//       .find(filter)
+//       .populate({
+//         path: "saleId",
+//         select: "invoiceNo customerID totalAmount paidAmount",
+//         populate: {
+//           path: "customerID",
+//           select: "name mobile",
+//         },
+//       })
+//       .populate("returnedProducts.productID", "name")
+//       .sort({ createdAt: -1 })
+//       .skip((page - 1) * perPage)
+//       .limit(perPage);
+
+//     res.json({
+//       success: true,
+//       msg: "Sale return list fetched successfully",
+//       data: saleReturns,
+//       pagination: {
+//         total,
+//         page,
+//         perPage,
+//         totalPages: Math.ceil(total / perPage),
+//       },
+//     });
+//   } catch (error) {
+//     console.error("Get Sale Return List Error:", error);
+//     res.status(500).json({ success: false, msg: error.message });
+//   }
+// };
+
+const getSaleReturnList = async (req, res) => {
+  try {
+    const page = parseInt(req.params.page) || 1;
+    const perPage = parseInt(req.params.perPage) || 20;
+
+    const searchKey = req.params.search !== "0" ? req.params.search : "";
+    const fromDate = req.params.from !== "0" ? new Date(req.params.from) : null;
+    const toDate = req.params.to !== "0" ? new Date(req.params.to) : null;
+
+    let filter = {};
+
+    // 🔍 Search by customer name or invoice
+    if (searchKey) {
+      filter.$or = [
+        { note: { $regex: searchKey, $options: "i" } },
+        { "saleId.invoiceNo": { $regex: searchKey, $options: "i" } },
+      ];
+    }
+
+    // 🔍 Date filter
+    if (fromDate && toDate) {
+      filter.date = { $gte: fromDate, $lte: toDate };
+    }
+
+    const total = await saleReturnModel.countDocuments(filter);
+
+    const saleReturns = await saleReturnModel
+      .find(filter)
+      .populate({
+        path: "saleId",
+        select: "invoiceNo paidAmount customerID",
+        populate: { path: "customerID", select: "name" },
+      })
+      .populate({
+        path: "returnedProducts.productID",
+        select: "name",
+      })
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * perPage)
+      .limit(perPage);
+
+    // 🔥 Convert each document into a single clean flat object
+    const formatted = saleReturns.map((sr) => {
+      const rp = sr.returnedProducts[0]; // single return item
+
+      return {
+        id: sr._id,
+
+        saleId: sr.saleId?._id || null,
+        invoiceNo: sr.saleId?.invoiceNo || "",
+        paidAmount: sr.saleId?.paidAmount || 0,
+
+        customerId: sr.saleId?.customerID?._id || null,
+        customerName: sr.saleId?.customerID?.name || "",
+
+        returnedProductId: rp?.productID?._id || null,
+        returnedProductName: rp?.productID?.name || "",
+        batchId: rp?.batchId || null,
+
+        returnQty: rp?.qty || 0,
+        unitCost: rp?.unitCost || 0,
+        returnTotal: rp?.total || 0,
+        reason: rp?.reason || "",
+
+        totalReturnAmount: sr.totalAmount,
+        note: sr.note,
+        date: sr.date,
+        createdAt: sr.createdAt,
+      };
+    });
+
+    res.json({
+      success: true,
+      message: "Sale return list fetched",
+      data: formatted,
+      pagination: {
+        total,
+        page,
+        perPage,
+        totalPages: Math.ceil(total / perPage),
+      },
+    });
+  } catch (error) {
+    console.error("Get Sale Return List Error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 module.exports = {
   addSaleReturn,
+  getSaleReturnList,
 };
