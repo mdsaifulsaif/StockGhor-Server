@@ -6,7 +6,6 @@ const customerModel = require("../models/customer.model");
 const BatchModel = require("../models/Batch");
 
 // with out due manage sale
-
 // const addSale = async (req, res) => {
 //   try {
 //     const { customerID, items, discount, tax, paidAmount, note } = req.body;
@@ -162,7 +161,7 @@ const addSale = async (req, res) => {
     let totalProfit = 0;
     const soldItems = [];
 
-    // --- Loop All Items ---
+    // --- Loop All Sale Items ---
     for (const item of items) {
       const product = await productModel.findById(item.productID);
       if (!product) {
@@ -171,6 +170,24 @@ const addSale = async (req, res) => {
           message: `Product not found: ${item.productID}`,
         });
       }
+
+      // ----------------------------
+      // VALIDATION FIXES
+      // ----------------------------
+      if (!item.qty || item.qty <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid qty for product ${product.name}`,
+        });
+      }
+
+      if (!item.unitPrice || Number(item.unitPrice) <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid unit price for product ${product.name}`,
+        });
+      }
+      // ----------------------------
 
       // --- Check Stock ---
       if (item.qty > product.totalStock) {
@@ -181,7 +198,7 @@ const addSale = async (req, res) => {
       }
 
       let qtyToSell = item.qty;
-      let soldQty = 0; // 🔥 actual sold qty (bug fix)
+      let soldQty = 0;
       let totalItemAmount = 0;
       let totalItemProfit = 0;
 
@@ -199,10 +216,13 @@ const addSale = async (req, res) => {
         batch.remainingQty -= deductQty;
         await batch.save();
 
-        soldQty += deductQty; // 🔥 FIXED (main bug fix)
+        soldQty += deductQty;
 
-        const itemTotal = deductQty * item.unitPrice;
-        const itemProfit = deductQty * (item.unitPrice - batch.unitCost);
+        const unitPrice = Number(item.unitPrice);
+        const unitCost = Number(batch.unitCost);
+
+        const itemTotal = deductQty * unitPrice;
+        const itemProfit = deductQty * (unitPrice - unitCost);
 
         totalItemAmount += itemTotal;
         totalItemProfit += itemProfit;
@@ -211,8 +231,8 @@ const addSale = async (req, res) => {
           productID: item.productID,
           batchId: batch._id,
           qty: deductQty,
-          unitPrice: item.unitPrice,
-          unitCost: batch.unitCost,
+          unitPrice,
+          unitCost,
           total: itemTotal,
           profit: itemProfit,
         });
@@ -220,8 +240,8 @@ const addSale = async (req, res) => {
         qtyToSell -= deductQty;
       }
 
-      // --- Update Product Stock ---
-      product.totalStock -= soldQty; // 🔥 Correct stock reduction
+      // Update Product Stock
+      product.totalStock -= soldQty;
       if (product.totalStock < 0) product.totalStock = 0;
       await product.save();
 
@@ -229,12 +249,11 @@ const addSale = async (req, res) => {
       totalProfit += totalItemProfit;
     }
 
-    // --- Final Calculations ---
+    // --- Final Amounts ---
     const grandTotal = subTotal - discount + tax;
     const dueAmount = grandTotal - paidAmount;
 
-    // --- Customer Balance Update ---
-    const updatedBalance = customer.balance + dueAmount;
+    customer.balance += dueAmount;
 
     // --- Create Sale ---
     const sale = new saleModel({
@@ -253,8 +272,6 @@ const addSale = async (req, res) => {
 
     await sale.save();
 
-    // --- Update Customer ---
-    customer.balance = updatedBalance;
     await customer.save();
 
     res.status(200).json({
@@ -268,6 +285,144 @@ const addSale = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+// const addSale = async (req, res) => {
+//   try {
+//     const {
+//       customerID,
+//       items,
+//       discount = 0,
+//       tax = 0,
+//       paidAmount = 0,
+//       note,
+//     } = req.body;
+
+//     if (!customerID || !items || items.length === 0) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Customer ID and items are required.",
+//       });
+//     }
+
+//     // --- Get Customer ---
+//     const customer = await customerModel.findById(customerID);
+//     if (!customer) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Customer not found.",
+//       });
+//     }
+
+//     let subTotal = 0;
+//     let totalProfit = 0;
+//     const soldItems = [];
+
+//     // --- Loop All Items ---
+//     for (const item of items) {
+//       const product = await productModel.findById(item.productID);
+//       if (!product) {
+//         return res.status(404).json({
+//           success: false,
+//           message: `Product not found: ${item.productID}`,
+//         });
+//       }
+
+//       // --- Check Stock ---
+//       if (item.qty > product.totalStock) {
+//         return res.status(400).json({
+//           success: false,
+//           message: `Insufficient stock for ${product.name}. Available: ${product.totalStock}`,
+//         });
+//       }
+
+//       let qtyToSell = item.qty;
+//       let soldQty = 0; //  actual sold qty (bug fix)
+//       let totalItemAmount = 0;
+//       let totalItemProfit = 0;
+
+//       // --- FIFO Batches ---
+//       const batches = await BatchModel.find({
+//         productId: item.productID,
+//         remainingQty: { $gt: 0 },
+//       }).sort({ purchaseDate: 1 });
+
+//       for (const batch of batches) {
+//         if (qtyToSell <= 0) break;
+
+//         const deductQty = Math.min(batch.remainingQty, qtyToSell);
+
+//         batch.remainingQty -= deductQty;
+//         await batch.save();
+
+//         soldQty += deductQty; //  FIXED (main bug fix)
+
+//         const itemTotal = deductQty * item.unitPrice;
+//         const itemProfit = deductQty * (item.unitPrice - batch.unitCost);
+
+//         totalItemAmount += itemTotal;
+//         totalItemProfit += itemProfit;
+
+//         soldItems.push({
+//           productID: item.productID,
+//           batchId: batch._id,
+//           qty: deductQty,
+//           unitPrice: item.unitPrice,
+//           unitCost: batch.unitCost,
+//           total: itemTotal,
+//           profit: itemProfit,
+//         });
+
+//         qtyToSell -= deductQty;
+//       }
+
+//       // --- Update Product Stock ---
+//       product.totalStock -= soldQty; //  Correct stock reduction
+//       if (product.totalStock < 0) product.totalStock = 0;
+//       await product.save();
+
+//       subTotal += totalItemAmount;
+//       totalProfit += totalItemProfit;
+//     }
+
+//     // --- Final Calculations ---
+//     const grandTotal = subTotal - discount + tax;
+//     const dueAmount = grandTotal - paidAmount;
+
+//     // --- Customer Balance Update ---
+//     const updatedBalance = customer.balance + dueAmount;
+
+//     // --- Create Sale ---
+//     const sale = new saleModel({
+//       customerID,
+//       items: soldItems,
+//       subTotal,
+//       discount,
+//       tax,
+//       grandTotal,
+//       paidAmount,
+//       dueAmount,
+//       totalProfit,
+//       note,
+//       invoiceNo: "INV-" + Date.now(),
+//     });
+
+//     await sale.save();
+
+//     // --- Update Customer ---
+//     customer.balance = updatedBalance;
+//     await customer.save();
+
+//     res.status(200).json({
+//       success: true,
+//       message: "Sale processed successfully",
+//       sale,
+//       customerBalance: customer.balance,
+//     });
+//   } catch (error) {
+//     console.error("Add Sale Error:", error);
+//     res.status(500).json({ success: false, message: error.message });
+//   }
+// };
 
 const getSalesList = async (req, res) => {
   try {
@@ -364,7 +519,9 @@ const getSaleDetail = async (req, res) => {
 //   session.startTransaction();
 
 //   try {
-//     const { saleId, customerID, items, paidAmount, status } = req.body;
+//     const { saleId } = req.params; // ✅ saleId from params
+//     const { customerID, items, paidAmount, status } = req.body;
+
 //     if (!saleId || !items || items.length === 0) {
 //       return res.status(400).json({
 //         success: false,
@@ -372,6 +529,7 @@ const getSaleDetail = async (req, res) => {
 //       });
 //     }
 
+//     // 🔹 Find sale
 //     const existingSale = await saleModel.findById(saleId).session(session);
 //     if (!existingSale) {
 //       return res.status(404).json({
@@ -380,19 +538,23 @@ const getSaleDetail = async (req, res) => {
 //       });
 //     }
 
-//     // ✅ Find customer
+//     // 🔹 Find customer
 //     const customer = await customerModel
 //       .findById(customerID || existingSale.customerID)
 //       .session(session);
+
 //     if (!customer) {
 //       throw new Error("Customer not found");
 //     }
 
-//     // 🔹 Step 1: Revert old stock & revert old customer balance
+//     // -------------------------------------------------------------
+//     // 🔹 STEP 1: Revert previous sale stock + balance
+//     // -------------------------------------------------------------
 //     for (const oldItem of existingSale.items) {
 //       const product = await productModel
 //         .findById(oldItem.productID)
 //         .session(session);
+
 //       if (product) {
 //         product.totalStock += oldItem.qty;
 //         await product.save({ session });
@@ -409,11 +571,13 @@ const getSaleDetail = async (req, res) => {
 //       }
 //     }
 
-//     //  Revert previous balance impact
+//     // 🔹 revert customer balance
 //     const prevDue = existingSale.totalAmount - existingSale.paidAmount;
 //     customer.balance = Math.max((customer.balance || 0) - prevDue, 0);
 
-//     // 🔹 Step 2: Process new items & adjust stock
+//     // -------------------------------------------------------------
+//     // 🔹 STEP 2: Apply new sale items
+//     // -------------------------------------------------------------
 //     let totalAmount = 0;
 //     const processedItems = [];
 
@@ -424,16 +588,15 @@ const getSaleDetail = async (req, res) => {
 //       if (!product) continue;
 
 //       let qtyToSell = newItem.qty;
+//       let batchUsed = null;
 
-//       // Fetch batches FIFO order
+//       // FIFO batches
 //       const batches = await BatchModel.find({
 //         productId: newItem.productID,
 //         remainingQty: { $gt: 0 },
 //       })
 //         .sort({ purchaseDate: 1 })
 //         .session(session);
-
-//       let batchUsed = null;
 
 //       for (const batch of batches) {
 //         if (qtyToSell <= 0) break;
@@ -442,7 +605,7 @@ const getSaleDetail = async (req, res) => {
 //         batch.remainingQty -= deductQty;
 //         await batch.save({ session });
 
-//         batchUsed = batch._id; // last used batch for reference
+//         batchUsed = batch._id;
 //         qtyToSell -= deductQty;
 //       }
 
@@ -462,7 +625,9 @@ const getSaleDetail = async (req, res) => {
 //       });
 //     }
 
-//     // 🔹 Step 3: Update sale document
+//     // -------------------------------------------------------------
+//     // 🔹 STEP 3: Update Sale Document
+//     // -------------------------------------------------------------
 //     const finalPaid = paidAmount ?? existingSale.paidAmount;
 //     const dueAmount = totalAmount - finalPaid;
 
@@ -475,16 +640,18 @@ const getSaleDetail = async (req, res) => {
 
 //     await existingSale.save({ session });
 
-//     // 🔹 Step 4: Update new customer balance
+//     // -------------------------------------------------------------
+//     // 🔹 STEP 4: Update Customer Balance
+//     // -------------------------------------------------------------
 //     customer.balance += dueAmount;
 //     await customer.save({ session });
 
 //     await session.commitTransaction();
 //     session.endSession();
 
-//     res.status(200).json({
+//     return res.status(200).json({
 //       success: true,
-//       message: "Sale updated successfully and customer balance adjusted",
+//       message: "Sale updated successfully",
 //       sale: existingSale,
 //       updatedCustomerBalance: customer.balance,
 //     });
@@ -492,7 +659,10 @@ const getSaleDetail = async (req, res) => {
 //     await session.abortTransaction();
 //     session.endSession();
 //     console.error("Edit Sale Error:", error);
-//     res.status(500).json({ success: false, message: error.message });
+//     return res.status(500).json({
+//       success: false,
+//       message: error.message,
+//     });
 //   }
 // };
 
@@ -501,7 +671,7 @@ const editSale = async (req, res) => {
   session.startTransaction();
 
   try {
-    const { saleId } = req.params; // ✅ saleId from params
+    const { saleId } = req.params;
     const { customerID, items, paidAmount, status } = req.body;
 
     if (!saleId || !items || items.length === 0) {
@@ -511,7 +681,7 @@ const editSale = async (req, res) => {
       });
     }
 
-    // 🔹 Find sale
+    // Fetch existing sale
     const existingSale = await saleModel.findById(saleId).session(session);
     if (!existingSale) {
       return res.status(404).json({
@@ -520,18 +690,16 @@ const editSale = async (req, res) => {
       });
     }
 
-    // 🔹 Find customer
+    // Fetch customer
     const customer = await customerModel
       .findById(customerID || existingSale.customerID)
       .session(session);
 
-    if (!customer) {
-      throw new Error("Customer not found");
-    }
+    if (!customer) throw new Error("Customer not found");
 
-    // -------------------------------------------------------------
-    // 🔹 STEP 1: Revert previous sale stock + balance
-    // -------------------------------------------------------------
+    // -------------------------------------------
+    // STEP 1: Revert old sale (Stock + Customer balance)
+    // -------------------------------------------
     for (const oldItem of existingSale.items) {
       const product = await productModel
         .findById(oldItem.productID)
@@ -542,37 +710,34 @@ const editSale = async (req, res) => {
         await product.save({ session });
       }
 
-      if (oldItem.batchId) {
-        const batch = await BatchModel.findById(oldItem.batchId).session(
-          session
-        );
-        if (batch) {
-          batch.remainingQty += oldItem.qty;
-          await batch.save({ session });
-        }
+      const batch = await BatchModel.findById(oldItem.batchId).session(session);
+      if (batch) {
+        batch.remainingQty += oldItem.qty;
+        await batch.save({ session });
       }
     }
 
-    // 🔹 revert customer balance
-    const prevDue = existingSale.totalAmount - existingSale.paidAmount;
-    customer.balance = Math.max((customer.balance || 0) - prevDue, 0);
+    const previousDue = existingSale.totalAmount - existingSale.paidAmount;
+    customer.balance = Math.max(customer.balance - previousDue, 0);
 
-    // -------------------------------------------------------------
-    // 🔹 STEP 2: Apply new sale items
-    // -------------------------------------------------------------
+    // -------------------------------------------
+    // STEP 2: Apply new sale items
+    // -------------------------------------------
     let totalAmount = 0;
+    let totalProfit = 0;
     const processedItems = [];
 
     for (const newItem of items) {
       const product = await productModel
         .findById(newItem.productID)
         .session(session);
+
       if (!product) continue;
 
       let qtyToSell = newItem.qty;
       let batchUsed = null;
+      let unitCostForProfit = 0;
 
-      // FIFO batches
       const batches = await BatchModel.find({
         productId: newItem.productID,
         remainingQty: { $gt: 0 },
@@ -584,10 +749,14 @@ const editSale = async (req, res) => {
         if (qtyToSell <= 0) break;
 
         const deductQty = Math.min(batch.remainingQty, qtyToSell);
+
+        // Reduce stock
         batch.remainingQty -= deductQty;
         await batch.save({ session });
 
         batchUsed = batch._id;
+        unitCostForProfit = batch.unitCost; // FIXED
+
         qtyToSell -= deductQty;
       }
 
@@ -596,20 +765,25 @@ const editSale = async (req, res) => {
       await product.save({ session });
 
       const itemTotal = newItem.qty * newItem.unitPrice;
+      const itemProfit = newItem.qty * (newItem.unitPrice - unitCostForProfit); // FIXED
+
       totalAmount += itemTotal;
+      totalProfit += itemProfit;
 
       processedItems.push({
         productID: newItem.productID,
         qty: newItem.qty,
         unitPrice: newItem.unitPrice,
+        unitCost: unitCostForProfit, // FIXED
         total: itemTotal,
+        profit: itemProfit, // FIXED
         batchId: batchUsed,
       });
     }
 
-    // -------------------------------------------------------------
-    // 🔹 STEP 3: Update Sale Document
-    // -------------------------------------------------------------
+    // -------------------------------------------
+    // STEP 3: Update Sale Document
+    // -------------------------------------------
     const finalPaid = paidAmount ?? existingSale.paidAmount;
     const dueAmount = totalAmount - finalPaid;
 
@@ -618,13 +792,14 @@ const editSale = async (req, res) => {
     existingSale.totalAmount = totalAmount;
     existingSale.paidAmount = finalPaid;
     existingSale.dueAmount = dueAmount;
+    existingSale.totalProfit = totalProfit; // FIXED
     existingSale.status = status || existingSale.status;
 
     await existingSale.save({ session });
 
-    // -------------------------------------------------------------
-    // 🔹 STEP 4: Update Customer Balance
-    // -------------------------------------------------------------
+    // -------------------------------------------
+    // STEP 4: Update Customer Balance
+    // -------------------------------------------
     customer.balance += dueAmount;
     await customer.save({ session });
 
@@ -703,168 +878,10 @@ const deleteSale = async (req, res) => {
   }
 };
 
-// const addSaleReturn = async (req, res) => {
-//   try {
-//     const { saleId } = req.params; // Sale ID from params
-//     const { returnItems, note } = req.body;
-
-//     if (!saleId || !returnItems || returnItems.length === 0) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "Sale ID and return items are required",
-//       });
-//     }
-
-//     // Find Sale
-//     const sale = await saleModel.findById(saleId).populate("customerID");
-//     if (!sale)
-//       return res
-//         .status(404)
-//         .json({ success: false, message: "Sale not found" });
-
-//     let totalAmount = 0;
-//     const returnedProducts = [];
-
-//     // ===============================
-//     // LOOP THROUGH RETURN ITEMS
-//     // ===============================
-//     for (const item of returnItems) {
-//       const product = await productModel.findById(item.productID);
-//       if (!product) continue;
-
-//       // -------------------------------
-//       // 1️⃣ Find sold quantity
-//       // -------------------------------
-//       const soldItem = sale.items.find(
-//         (i) => i.productID.toString() === item.productID
-//       );
-
-//       if (!soldItem) continue;
-
-//       const soldQty = soldItem.qty;
-
-//       // -------------------------------
-//       // 2️⃣ Find previously returned qty
-//       // -------------------------------
-//       const previousReturns = await saleReturnModel.aggregate([
-//         { $match: { saleId: sale._id } },
-//         { $unwind: "$returnedProducts" },
-//         { $match: { "returnedProducts.productID": product._id } },
-//         {
-//           $group: {
-//             _id: null,
-//             totalReturned: { $sum: "$returnedProducts.qty" },
-//           },
-//         },
-//       ]);
-
-//       const alreadyReturned = previousReturns.length
-//         ? previousReturns[0].totalReturned
-//         : 0;
-
-//       // -------------------------------
-//       // 3️⃣ Calculate allowed return qty
-//       // -------------------------------
-//       const allowedReturn = soldQty - alreadyReturned;
-
-//       if (item.returnQty > allowedReturn) {
-//         return res.status(400).json({
-//           success: false,
-//           message: `Cannot return more than allowed. Sold: ${soldQty}, Already Returned: ${alreadyReturned}, Allowed: ${allowedReturn}`,
-//         });
-//       }
-
-//       // ===============================
-//       // 4️⃣ Return Stock to batches
-//       // ===============================
-
-//       let qtyToReturn = item.returnQty;
-//       const batches = await BatchModel.find({ productId: item.productID }).sort(
-//         { purchaseDate: 1 }
-//       );
-
-//       let totalReturnedThisProduct = 0;
-
-//       for (const batch of batches) {
-//         if (qtyToReturn <= 0) break;
-
-//         const soldFromBatch = batch.purchaseQty - batch.remainingQty;
-//         const deductQty = Math.min(soldFromBatch, qtyToReturn);
-//         if (deductQty <= 0) continue;
-
-//         batch.remainingQty += deductQty;
-//         await batch.save();
-
-//         returnedProducts.push({
-//           productID: item.productID,
-//           batchId: batch._id,
-//           qty: deductQty,
-//           unitCost: batch.unitCost,
-//           total: deductQty * batch.unitCost,
-//           reason: item.reason || "",
-//         });
-
-//         totalAmount += deductQty * batch.unitCost;
-//         totalReturnedThisProduct += deductQty;
-//         qtyToReturn -= deductQty;
-//       }
-
-//       // -------------------------------
-//       // 5️⃣ Update product stock
-//       // -------------------------------
-//       if (totalReturnedThisProduct > 0) {
-//         product.totalStock =
-//           (product.totalStock || 0) + totalReturnedThisProduct;
-//         await product.save();
-//       }
-//     }
-
-//     // ===============================
-//     // 6️⃣ Update customer balance
-//     // ===============================
-//     if (sale.customerID) {
-//       sale.customerID.balance = Math.max(
-//         (sale.customerID.balance || 0) - totalAmount,
-//         0
-//       );
-//       await sale.customerID.save();
-//     }
-
-//     // ===============================
-//     // 7️⃣ Save Return Record
-//     // ===============================
-//     const saleReturn = new saleReturnModel({
-//       saleId,
-//       returnedProducts,
-//       totalAmount,
-//       note: note || "",
-//     });
-
-//     await saleReturn.save();
-
-//     res.status(200).json({
-//       success: true,
-//       message: "Sale return processed successfully",
-//       data: {
-//         saleReturn,
-//         updatedStock: returnedProducts.map((r) => ({
-//           productID: r.productID,
-//           returnedQty: r.qty,
-//         })),
-//         updatedCustomerBalance: sale.customerID ? sale.customerID.balance : 0,
-//       },
-//     });
-//   } catch (error) {
-//     console.error("Sale Return Error:", error);
-//     res.status(500).json({ success: false, message: error.message });
-//   }
-// };
-
 module.exports = {
   addSale,
   getSalesList,
   getSaleDetail,
   deleteSale,
-  // addSaleReturn,
   editSale,
 };

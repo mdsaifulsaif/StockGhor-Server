@@ -14,6 +14,4 @@ router.get(
   saleReturnController.getSaleReturnList
 );
 
-router;
-
 module.exports = router;

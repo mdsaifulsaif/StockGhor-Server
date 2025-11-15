@@ -95,19 +95,19 @@ const ProductSchema = new mongoose.Schema(
     alertQty: { type: Number, default: 10 },
     isActive: { type: Boolean, default: true },
 
-    // 🔹 Pricing info (for sale)
+    //  Pricing info (for sale)
     mrp: { type: Number, default: 0 },
     dp: { type: Number, default: 0 }, // distributor price
     salePrice: { type: Number, default: 0 },
     taxPercent: { type: Number, default: 0 },
     discountPercent: { type: Number, default: 0 },
 
-    // 🔹 Extra info
+    //  Extra info
     barcode: { type: String, default: "" },
     serialNumbers: [String],
     status: { type: Boolean, default: true },
 
-    // 🔹 Optional Link with Batch (for fast lookup)
+    //  Optional Link with Batch (for fast lookup)
     // আলাদা batch collection থাকলেও এখানে virtual populate বা lastBatchId রাখতে পারো
   },
   { timestamps: true }
